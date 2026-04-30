@@ -84,10 +84,10 @@ function collectStateFromForm() {
   g.passiveWaterLevel_m  = numVal('geomPassiveWater');
   g.seepage              = document.getElementById('geomSeepage')?.value || 'hydrostatic';
 
-  // Wall
+  // Wall — length is derived from trial embedment + (wallTop − passiveGround)
   AppState.wall.type        = document.getElementById('wallType')?.value || 'cantilever';
   AppState.wall.steelGrade  = document.getElementById('wallSteelGrade')?.value || 'S355GP';
-  AppState.wall.length_m    = numVal('wallLength');
+  AppState.wall.length_m    = computeWallLength();
 
   // Design control
   AppState.designControl.mode              = document.getElementById('dcMode')?.value || 'EC7';
@@ -141,7 +141,16 @@ function populateFormFromState(state) {
   Object.assign(AppState.wall, state.wall || {});
   setVal('wallType',       AppState.wall.type);
   setVal('wallSteelGrade', AppState.wall.steelGrade);
-  setVal('wallLength',     AppState.wall.length_m);
+  // Back-compat: legacy designs may have wall.length_m but no trialEmbedment_m.
+  // Derive embedment from the saved length so the input field is non-zero.
+  if (!AppState.geometry.trialEmbedment_m && AppState.wall.length_m > 0) {
+    const derived = AppState.wall.length_m - (AppState.geometry.wallTopLevel_m - AppState.geometry.passiveGroundLevel_m);
+    if (derived > 0) {
+      AppState.geometry.trialEmbedment_m = derived;
+      setVal('geomEmbedment', derived);
+    }
+  }
+  recomputeWallLength();
   const lbl = document.getElementById('wallSectionLabel');
   if (lbl) lbl.textContent = (Catalogue.byId[AppState.wall.sectionId]?.designation) || AppState.wall.sectionId || '—';
 
@@ -205,3 +214,19 @@ function syncProjectMeta() {
 function setVal(id, v)  { const el = document.getElementById(id);  if (el) el.value = v ?? ''; }
 function setText(id, v) { const el = document.getElementById(id);  if (el) el.textContent = v ?? ''; }
 function numVal(id)     { return parseFloat(document.getElementById(id)?.value); }
+
+// Wall length is derived: total wall = (top − passive ground) + embedment below dredge
+function computeWallLength() {
+  const top  = numVal('geomWallTop');
+  const pgnd = numVal('geomPassiveGround');
+  const emb  = numVal('geomEmbedment');
+  if ([top, pgnd, emb].some(v => isNaN(v))) return AppState.wall.length_m || 0;
+  return (top - pgnd) + emb;
+}
+
+// Refresh the read-only wall-length display + AppState whenever a driver changes
+function recomputeWallLength() {
+  const L = computeWallLength();
+  AppState.wall.length_m = L;
+  setVal('wallLength', L.toFixed(2));
+}
