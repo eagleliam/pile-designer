@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ward &amp; Burke — Pile Designer</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="alternate icon" type="image/png" href="/ward_burke_logo.png">
+<link rel="apple-touch-icon" href="/ward_burke_logo.png">
+<meta name="theme-color" content="#B22234">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body data-project="" data-date="">
+
+<!-- ── Cover Page (print only) ── -->
+<div class="cover-page" id="coverPage">
+  <div class="cover-top-strip"></div>
+  <div class="cover-logo-section">
+    <img src="/ward_burke_logo.png" alt="Ward &amp; Burke" id="coverLogo">
+  </div>
+  <div class="cover-accent-strip"></div>
+  <div class="cover-body">
+    <div class="cover-title" id="coverTitle">Sheet Pile Wall Design</div>
+    <div class="cover-subtitle">
+      Embedded Sheet Pile Retaining Wall &middot; Limit-Equilibrium Analysis<br>
+      EC7 DA1 (Combo 1 &amp; 2) &middot; SLS Deflection &middot; Bishop Rotational Stability
+    </div>
+    <div class="cover-meta">
+      <div class="cover-meta-row"><div class="cover-meta-label">Project</div><div class="cover-meta-value" id="coverProjName">—</div></div>
+      <div class="cover-meta-row"><div class="cover-meta-label">Reference</div><div class="cover-meta-value" id="coverProjRef">—</div></div>
+      <div class="cover-meta-row"><div class="cover-meta-label">Client</div><div class="cover-meta-value" id="coverProjClient">—</div></div>
+      <div class="cover-meta-row"><div class="cover-meta-label">Designer</div><div class="cover-meta-value" id="coverProjDesigner">—</div></div>
+      <div class="cover-meta-row"><div class="cover-meta-label">Date</div><div class="cover-meta-value" id="coverProjDate">—</div></div>
+      <div class="cover-meta-row"><div class="cover-meta-label">Revision</div><div class="cover-meta-value" id="coverProjRev">P01</div></div>
+    </div>
+  </div>
+  <div class="cover-footer">
+    EN 1997-1 Eurocode 7 &middot; CIRIA C760 Guidance on Embedded Retaining Wall Design &middot; ArcelorMittal Sheet Pile Catalogue
+  </div>
+</div>
+
+<!-- ── Designs Sidebar ── -->
+<div class="designs-sidebar no-print" id="designsSidebar">
+  <div class="sidebar-header">
+    <span class="sidebar-title">Saved Designs</span>
+    <button id="sidebarCollapseBtn" class="btn-icon" onclick="toggleSidebar()" title="Collapse sidebar">&#8249;</button>
+  </div>
+  <input id="designSearch" class="sidebar-search" placeholder="Search designs…" oninput="filterDesigns(this.value)">
+  <div id="designsList" class="designs-list"></div>
+  <div class="sidebar-footer">
+    <button class="btn-add sidebar-new-btn" onclick="showNewDesignModal()">+ New Design</button>
+  </div>
+</div>
+
+<div id="mainWrapper" class="main-with-sidebar">
+
+  <!-- Header -->
+  <div class="header no-print">
+    <div class="header-left">
+      <button class="btn-icon sidebar-toggle-btn no-print" onclick="toggleSidebar()" title="Toggle sidebar" style="color:#fff;font-size:20px;background:none;border:none;cursor:pointer;margin-right:4px;">&#9776;</button>
+      <img src="/ward_burke_logo.png" alt="Ward &amp; Burke" class="header-logo">
+      <div class="header-title">
+        <h1>Pile Designer</h1>
+        <div class="header-sub">2D Sheet Pile Wall &middot; EC7 DA1 + SLS</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn" onclick="exportPDF()">Export PDF</button>
+      <button class="btn btn-primary" onclick="runAllDesigns()">Run Design Check</button>
+    </div>
+  </div>
+
+  <!-- Print header -->
+  <div class="print-header-small">
+    <img src="/ward_burke_logo.png" alt="Ward &amp; Burke">
+    <div class="print-header-small-right" id="printHeaderRef">Pile Designer</div>
+  </div>
+
+  <!-- Revision bar -->
+  <div class="revision-bar no-print" id="revisionBar" style="display:none">
+    <div class="revision-bar-left">
+      <span class="revision-bar-label">Revision:</span>
+      <select id="revisionSelect" onchange="onRevisionSelectChange(this.value)"></select>
+      <span id="revBarCode" class="revision-badge">P01</span>
+    </div>
+    <div class="revision-bar-right">
+      <button class="btn btn-sm" onclick="showRevisionHistory()">&#128338; History</button>
+      <button class="btn btn-sm" onclick="showNewRevisionModal()">+ New Revision</button>
+      <button class="btn btn-sm" id="deleteRevBtn" onclick="deleteCurrentRevision()" style="display:none">Delete Rev</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteCurrentDesign()">Delete Design</button>
+      <button class="btn btn-sm btn-primary" id="saveBtn" onclick="saveCurrentRevision()">Save</button>
+      <span id="saveStatus" class="save-status"></span>
+    </div>
+  </div>
+
+  <div class="history-panel no-print" id="historyPanel">
+    <div class="history-panel-header">
+      <span class="history-panel-title">Revision History</span>
+      <button class="btn-icon" onclick="closeRevisionHistory()" style="font-size:16px;">&times;</button>
+    </div>
+    <div id="historyList" class="history-list"></div>
+  </div>
+
+  <div class="container page-content">
+
+    <!-- Project Information -->
+    <div class="section">
+      <div class="section-header"><h2>Project Information</h2><span class="section-tag">Reference</span></div>
+      <div class="section-body">
+        <div class="project-info-grid">
+          <div class="form-group"><label>Project Name</label><input id="projName" oninput="syncProjectMeta();markDirty();scheduleAutoSave()"></div>
+          <div class="form-group"><label>Reference</label><input id="projRef" oninput="syncProjectMeta();markDirty();scheduleAutoSave()"></div>
+          <div class="form-group"><label>Client</label><input id="projClient" oninput="syncProjectMeta();markDirty();scheduleAutoSave()"></div>
+          <div class="form-group"><label>Designer</label><input id="projDesigner" oninput="syncProjectMeta();markDirty();scheduleAutoSave()"></div>
+          <div class="form-group"><label>Date</label><input id="projDate" type="date" oninput="syncProjectMeta();markDirty();scheduleAutoSave()"></div>
+          <div class="form-group"><label>Revision</label><input id="projRev" value="P01" readonly></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Revision History -->
+    <div class="section" id="revisionHistorySection" style="display:none">
+      <div class="section-header"><h2>Revision History</h2><span class="section-tag">Log</span></div>
+      <div class="section-body">
+        <table class="rev-history-table">
+          <thead><tr><th>Rev</th><th>Date</th><th>By</th><th>Reason for Revision</th><th class="no-print"></th></tr></thead>
+          <tbody id="revHistoryTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Cross-section diagram -->
+    <div class="section">
+      <div class="section-header"><h2>Cross Section</h2><span class="section-tag">Diagram</span></div>
+      <div class="section-body">
+        <div class="view-tabs no-print">
+          <div class="view-tab active" data-view="outline"     onclick="setActiveView('outline')">Outline</div>
+          <div class="view-tab"        data-view="gross"       onclick="setActiveView('gross')">Gross pressures</div>
+          <div class="view-tab"        data-view="net"         onclick="setActiveView('net')">Net pressure</div>
+          <div class="view-tab"        data-view="factored"    onclick="setActiveView('factored')">Factored pressure</div>
+          <div class="view-tab"        data-view="BMD"         onclick="setActiveView('BMD')">Bending moment</div>
+          <div class="view-tab"        data-view="SFD"         onclick="setActiveView('SFD')">Shear force</div>
+          <div class="view-tab"        data-view="deflection"  onclick="setActiveView('deflection')">Deflection</div>
+          <div class="view-tab"        data-view="rotational"  onclick="setActiveView('rotational')">Rotational stability</div>
+        </div>
+        <div class="section-svg-host" id="sectionDiagram"></div>
+      </div>
+    </div>
+
+    <!-- Geometry -->
+    <div class="section">
+      <div class="section-header"><h2>Wall Geometry &amp; Water</h2><span class="section-tag">Input</span></div>
+      <div class="section-body">
+        <div class="form-grid">
+          <div class="form-group"><label>Active GL (m)</label><input id="geomActiveGround"  type="number" step="0.1" oninput="markDirty();scheduleAutoSave();refreshDiagram()"></div>
+          <div class="form-group"><label>Passive GL (m)</label><input id="geomPassiveGround" type="number" step="0.1" oninput="markDirty();scheduleAutoSave();refreshDiagram()"></div>
+          <div class="form-group"><label>Wall top (m)</label><input id="geomWallTop"        type="number" step="0.1" oninput="markDirty();scheduleAutoSave();refreshDiagram()"></div>
+          <div class="form-group"><label>Trial embedment (m)</label><input id="geomEmbedment" type="number" step="0.1" oninput="markDirty();scheduleAutoSave()"></div>
+          <div class="form-group"><label>Active WL (m)</label><input id="geomActiveWater"   type="number" step="0.1" oninput="markDirty();scheduleAutoSave();refreshDiagram()"></div>
+          <div class="form-group"><label>Passive WL (m)</label><input id="geomPassiveWater" type="number" step="0.1" oninput="markDirty();scheduleAutoSave();refreshDiagram()"></div>
+          <div class="form-group"><label>Seepage</label>
+            <select id="geomSeepage" onchange="markDirty();scheduleAutoSave()">
+              <option value="hydrostatic">Hydrostatic both sides</option>
+              <option value="steady">Steady-state seepage</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Wall length (m)</label><input id="wallLength" type="number" step="0.1" oninput="markDirty();scheduleAutoSave();refreshDiagram()"></div>
+          <div class="form-group"><label>Wall type</label>
+            <select id="wallType" onchange="AppState.wall.type=this.value;markDirty();scheduleAutoSave();refreshDiagram()">
+              <option value="cantilever">Cantilever</option>
+              <option value="singleprop">Single prop / anchor</option>
+              <option value="multiprop">Multi-prop</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sheet pile section -->
+    <div class="section">
+      <div class="section-header"><h2>Sheet Pile Section</h2><span class="section-tag">Catalogue</span></div>
+      <div class="section-body">
+        <div class="form-grid">
+          <div class="form-group" style="grid-column: 1 / span 2;">
+            <label>Section</label>
+            <div class="section-selector">
+              <div class="sel-label" id="wallSectionLabel">—</div>
+              <button class="btn-add" onclick="openSectionPicker()">Browse / Auto-pick</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Steel grade</label>
+            <select id="wallSteelGrade" onchange="AppState.wall.steelGrade=this.value;markDirty();scheduleAutoSave()">
+              <option value="S240GP">S240GP</option>
+              <option value="S270GP">S270GP</option>
+              <option value="S320GP">S320GP</option>
+              <option value="S355GP" selected>S355GP</option>
+              <option value="S390GP">S390GP</option>
+              <option value="S430GP">S430GP</option>
+              <option value="S460AP">S460AP</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Soils -->
+    <div class="section">
+      <div class="section-header"><h2>Soil Layers</h2><span class="section-tag">Input</span></div>
+      <div class="section-body">
+        <div class="info-box">Define the layered stratigraphy on each side. Each layer has independent drained/undrained type, so you can mix (e.g. soft clay over dense sand).</div>
+        <div class="soils-two-col">
+          <div class="soils-col">
+            <h3 class="sub-heading">Active side (retained)</h3>
+            <div id="activeSoilsList"></div>
+            <button class="btn-add" onclick="addSoilLayer('active')">+ Add active layer</button>
+          </div>
+          <div class="soils-col">
+            <h3 class="sub-heading">Passive side (excavated)</h3>
+            <div id="passiveSoilsList"></div>
+            <button class="btn-add" onclick="addSoilLayer('passive')">+ Add passive layer</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Surcharges -->
+    <div class="section">
+      <div class="section-header"><h2>Surcharges</h2><span class="section-tag">Input</span></div>
+      <div class="section-body">
+        <div id="surchargesList"></div>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <button class="btn-add" onclick="addSurcharge('uniform')">+ Add uniform surcharge</button>
+          <button class="btn-add" onclick="addSurcharge('strip')">+ Add strip / line load</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Props -->
+    <div class="section">
+      <div class="section-header"><h2>Props / Anchors</h2><span class="section-tag">Input</span></div>
+      <div class="section-body">
+        <div id="propsList"></div>
+        <button class="btn-add" onclick="addProp()" style="margin-top:8px;">+ Add prop</button>
+      </div>
+    </div>
+
+    <!-- Design control & partial factors -->
+    <div class="section">
+      <div class="section-header"><h2>Design Control &amp; Partial Factors</h2><span class="section-tag">EC7 / TRAD</span></div>
+      <div class="section-body">
+        <div class="form-grid">
+          <div class="form-group"><label>Mode</label>
+            <select id="dcMode" onchange="AppState.designControl.mode=this.value;markDirty();scheduleAutoSave()">
+              <option value="EC7">EC7 (Design Approach 1)</option>
+              <option value="TRAD">Traditional (global FoS)</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Active combination</label>
+            <select id="dcCombo" onchange="AppState.designControl.activeCombination=this.value;markDirty();scheduleAutoSave();refreshDiagram()">
+              <option value="C1">DA1 - Combination 1</option>
+              <option value="C2">DA1 - Combination 2</option>
+              <option value="SLS">SLS (deflection)</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Embedment safety factor</label><input id="dcEmbFactor" type="number" step="0.05" value="1.20" oninput="markDirty();scheduleAutoSave()"></div>
+          <div class="form-group"><label>Global FoS on passive (TRAD only)</label><input id="dcGlobalFoS" type="number" step="0.1" value="2.0" oninput="markDirty();scheduleAutoSave()"></div>
+        </div>
+        <div style="margin-top:14px"><h3 class="sub-heading">Partial factors</h3></div>
+        <div id="factorsTable"></div>
+      </div>
+    </div>
+
+    <!-- Rotational stability search -->
+    <div class="section">
+      <div class="section-header"><h2>Rotational Stability (Bishop)</h2><span class="section-tag">Search</span></div>
+      <div class="section-body">
+        <div class="info-box">Bishop simplified circular slip search. Grid is centred above the wall. Apply EC7 partial factors automatically. Toggle wall shear contribution to compare with/without the embedded sheet pile.</div>
+        <div class="form-grid">
+          <div class="form-group"><label>Method</label>
+            <select id="rotMethod" onchange="markDirty();scheduleAutoSave()">
+              <option value="bishop">Bishop simplified</option>
+              <option value="fellenius">Fellenius (ordinary)</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Target FoS</label><input id="rotTargetFoS" type="number" step="0.05" value="1.0" oninput="markDirty();scheduleAutoSave()"></div>
+          <div class="form-group"><label>Include wall shear</label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-family:var(--mono);"><input type="checkbox" id="rotIncludeWall" checked onchange="markDirty();scheduleAutoSave()"> Yes</label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="section" id="resultsSection" style="display:none">
+      <div class="section-header"><h2>Design Results</h2><span class="section-tag">Output</span></div>
+      <div class="section-body">
+        <div id="resultsBody"></div>
+      </div>
+    </div>
+
+  </div><!-- /container -->
+</div><!-- /mainWrapper -->
+
+<!-- Scripts (load order matters) -->
+<script src="/js/api.js"></script>
+<script src="/js/state.js"></script>
+<script src="/js/catalogue.js"></script>
+<script src="/js/factors.js"></script>
+<script src="/js/soils.js"></script>
+<script src="/js/pressures.js"></script>
+<script src="/js/solver.js"></script>
+<script src="/js/stability.js"></script>
+<script src="/js/diagram.js"></script>
+<script src="/js/results.js"></script>
+<script src="/js/ui/designPanel.js"></script>
+<script src="/js/ui/revisionPanel.js"></script>
+<script src="/js/ui/sectionPicker.js"></script>
+
+<script>
+// Boot
+(async () => {
+  try {
+    await loadCatalogue();
+  } catch (e) { console.error('Catalogue load failed:', e); }
+  await loadDesignsList();
+  // If no design loaded, render the empty form with defaults so user has something to see.
+  populateFormFromState({
+    geometry: AppState.geometry,
+    activeSoils: AppState.activeSoils,
+    passiveSoils: AppState.passiveSoils,
+    surcharges: AppState.surcharges,
+    props: AppState.props,
+    wall: AppState.wall,
+    designControl: AppState.designControl,
+    rotational: AppState.rotational,
+    view: AppState.view,
+    project: { name:'', ref:'', client:'', designer:'', date:'' }
+  });
+  refreshDiagram();
+})();
+</script>
+
+</body>
+</html>
