@@ -32,47 +32,55 @@ function runSingleCombination(state, combo) {
 function solveCantilever(state, combo) {
   const wallTop = state.geometry.wallTopLevel_m;
   const wallLen = state.wall.length_m;
-
-  // Find required embedment by iterating from passiveGround downward
-  const aGround = state.geometry.activeGroundLevel_m;
   const pGround = state.geometry.passiveGroundLevel_m;
-  const minToe  = pGround - 0.1;            // not embedded
-  const maxToe  = pGround - 25.0;           // 25 m max embedment
+  const maxD    = 25.0;                   // 25 m max embedment to search
   const dz_search = 0.05;
 
+  // Iterate trial embedment from small (toe just below dredge) to large.
+  // M-about-toe is positive when active drives the wall, negative when passive resists.
+  // Required embedment is where M transitions from + to ≤ 0.
   let d_required = null;
   let prevMoment = null;
-  for (let toeLevel = pGround - dz_search; toeLevel >= maxToe; toeLevel -= dz_search) {
+  let prevToe    = null;
+  for (let toeLevel = pGround - dz_search; toeLevel >= pGround - maxD; toeLevel -= dz_search) {
     const trial = { ...state, wall: { ...state.wall, length_m: wallTop - toeLevel } };
     const profile = buildPressureProfile(trial, combo);
     const M = momentAboutToe(profile, toeLevel);
-    if (prevMoment !== null && prevMoment < 0 && M >= 0) {
-      d_required = pGround - toeLevel;
+    if (M <= 0) {
+      if (prevMoment !== null && prevMoment > 0) {
+        const f = prevMoment / (prevMoment - M);
+        const interpToe = prevToe + f * (toeLevel - prevToe);
+        d_required = pGround - interpToe;
+      } else {
+        // First iteration already stable (passive dominates immediately, e.g. soft-clay
+        // toe in a stiff-clay base) — minimal embedment suffices.
+        d_required = pGround - toeLevel;
+      }
       break;
     }
-    prevMoment = M;
+    prevMoment = M; prevToe = toeLevel;
   }
-  if (d_required === null) d_required = wallLen - (wallTop - pGround);   // assume input is OK
+  if (d_required === null) d_required = maxD;     // didn't converge — wall would need >25 m embedment
 
-  const embFactor = state.designControl.embedmentSafetyFactor || 1.20;
-  const d_design  = d_required * embFactor;
+  const embFactor   = state.designControl.embedmentSafetyFactor || 1.20;
+  const d_design    = d_required * embFactor;
+  // Build the canonical design profile at d_required (the point where passive is just
+  // fully mobilised). d_design is reported to the user; the BMD/SFD use d_required.
+  const calcLength  = (wallTop - pGround) + d_required;
+  const calcState   = { ...state, wall: { ...state.wall, length_m: calcLength } };
+  const profile     = buildPressureProfile(calcState, combo);
 
-  // Re-build profile for the AS-INPUT wall length (so the user sees BMD for what they specified)
-  const profile = buildPressureProfile(state, combo);
-
-  // Compute SF and BM by numerical integration of net pressure top-down,
-  // then close to zero at toe by applying a point load R at the toe.
   const { SF, BM, R_toe } = integrateCantileverBM(profile);
-
-  // Deflection (only for SLS or always for output) — propped-cantilever style: clamped at toe, free at top.
-  const EI = flexuralStiffness_kNm2_per_m(state.wall.sectionId);
+  const EI   = flexuralStiffness_kNm2_per_m(state.wall.sectionId);
   const defl = deflectionByDoubleIntegration(profile.z, BM, EI, { topFree: true, toeClamped: true });
 
+  const userEmbedment = wallLen - (wallTop - pGround);
   return {
     combo,
     wallType: 'cantilever',
     d_required_m: d_required,
     d_design_m:   d_design,
+    user_embedment_m: userEmbedment,
     propForces_kN_per_m: [],
     levels:    profile.levels,
     z:         profile.z,
@@ -86,7 +94,7 @@ function solveCantilever(state, combo) {
     V_max_kN_per_m:     Math.max(...SF.map(Math.abs)),
     deflection_max_mm:  Math.max(...defl.map(d => Math.abs(d))) * 1000,
     R_toe_kN_per_m:     R_toe,
-    status:             d_required <= (wallLen - (wallTop - pGround)) ? 'OK' : 'EMBEDMENT INSUFFICIENT'
+    status:             userEmbedment >= d_design ? 'OK' : 'EMBEDMENT INSUFFICIENT'
   };
 }
 
@@ -134,46 +142,61 @@ function integrateCantileverBM(profile) {
 // ─── Single prop (free earth support) ────────────────────────────────────────
 
 function solveSingleProp(state, combo) {
-  const profile = buildPressureProfile(state, combo);
   const wallTop = state.geometry.wallTopLevel_m;
+  const wallLen = state.wall.length_m;
   const prop    = state.props[0] || { level_m: wallTop - 0.5 };
-
-  // Solve embedment: ΣM about prop = 0
   const pGround = state.geometry.passiveGroundLevel_m;
-  let d_required = null;
-  let prevM = null;
-  for (let toeLevel = pGround - 0.1; toeLevel >= pGround - 25; toeLevel -= 0.05) {
+
+  // Iterate embedment until ΣM about prop = 0 (free earth support).
+  // M-about-prop is negative for shallow embedment (active dominates) and crosses to
+  // positive once passive resistance below dredge develops enough.
+  let d_required = null, prevM = null, prevToe = null;
+  for (let toeLevel = pGround - 0.05; toeLevel >= pGround - 25; toeLevel -= 0.05) {
     const trial = { ...state, wall: { ...state.wall, length_m: wallTop - toeLevel } };
     const tp    = buildPressureProfile(trial, combo);
     const M     = momentAboutLevel(tp, prop.level_m);
-    if (prevM !== null && prevM < 0 && M >= 0) {
-      d_required = pGround - toeLevel;
+    if (M >= 0) {
+      if (prevM !== null && prevM < 0) {
+        const f = -prevM / (M - prevM);
+        const interpToe = prevToe + f * (toeLevel - prevToe);
+        d_required = pGround - interpToe;
+      } else {
+        // First iteration already balanced — minimal embedment suffices.
+        d_required = pGround - toeLevel;
+      }
       break;
     }
-    prevM = M;
+    prevM = M; prevToe = toeLevel;
   }
-  if (d_required === null) d_required = state.wall.length_m - (wallTop - pGround);
+  if (d_required === null) d_required = 25;
 
-  const embFactor = state.designControl.embedmentSafetyFactor || 1.20;
-  const d_design  = d_required * embFactor;
+  const embFactor   = state.designControl.embedmentSafetyFactor || 1.20;
+  const d_design    = d_required * embFactor;
+  // BMD/SFD/F_prop computed at d_required (where passive is mobilised to balance the
+  // active about the prop). d_design is reported as the recommended pile length.
+  const calcLength  = (wallTop - pGround) + d_required;
+  const calcState   = { ...state, wall: { ...state.wall, length_m: calcLength } };
+  const profile     = buildPressureProfile(calcState, combo);
 
-  // Prop reaction = ΣH (with the user-input wall length)
+  // Prop reaction = ΣH at the design embedment (positive = wall pushed toward passive,
+  // taken by the prop pulling back).
   let SH = 0;
   for (let i = 0; i < profile.z.length - 1; i++) {
     SH += 0.5 * (profile.net[i] + profile.net[i+1]) * (profile.z[i+1] - profile.z[i]);
   }
-  const F_prop = SH;     // kN/m, positive when wall pushed toward passive
+  const F_prop = SH;
 
-  // SF and BM with prop at prop.level_m
   const { SF, BM } = integrateProppedBM(profile, prop.level_m, wallTop, F_prop);
   const EI   = flexuralStiffness_kNm2_per_m(state.wall.sectionId);
   const defl = deflectionByDoubleIntegration(profile.z, BM, EI, { topFree: true, toeClamped: false, propLevel_z: wallTop - prop.level_m });
 
+  const userEmbedment = wallLen - (wallTop - pGround);
   return {
     combo,
     wallType: 'singleprop',
     d_required_m: d_required,
     d_design_m:   d_design,
+    user_embedment_m: userEmbedment,
     propForces_kN_per_m: [F_prop],
     levels:    profile.levels,
     z:         profile.z,
@@ -186,7 +209,7 @@ function solveSingleProp(state, combo) {
     M_max_kNm_per_m:    Math.max(...BM.map(Math.abs)),
     V_max_kN_per_m:     Math.max(...SF.map(Math.abs)),
     deflection_max_mm:  Math.max(...defl.map(d => Math.abs(d))) * 1000,
-    status:             d_required <= (state.wall.length_m - (wallTop - pGround)) ? 'OK' : 'EMBEDMENT INSUFFICIENT'
+    status:             userEmbedment >= d_design ? 'OK' : 'EMBEDMENT INSUFFICIENT'
   };
 }
 

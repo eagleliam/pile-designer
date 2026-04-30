@@ -1,19 +1,36 @@
 'use strict';
 // Top-level "Run Design Check" entry point + results panel renderer.
 
-function runAllDesigns() {
+function runAllDesigns(opts = {}) {
   const state = collectStateFromForm();
   const results = runDesign(state);
 
-  // Run rotational stability for the active combination
-  let stab = null;
-  try {
-    stab = runStabilityCheck(state, state.designControl.activeCombination || 'C1');
-  } catch (e) {
-    console.warn('Stability check failed:', e);
+  // Bishop is the slow one — gate on view (live recalc passes skipStability=true unless rotational view is active)
+  let stab = AppState.lastStabilityResult || null;
+  if (!opts.skipStability) {
+    try {
+      stab = runStabilityCheck(state, state.designControl.activeCombination || 'C1');
+    } catch (e) {
+      console.warn('Stability check failed:', e);
+    }
   }
 
   renderResultsPanel(results, stab, state);
+  if (typeof renderPilePropertiesPanel === 'function') renderPilePropertiesPanel();
+  refreshDiagram();
+}
+
+// Explicit entry point for the rotational section's "Run stability search" button
+function runStabilityOnly() {
+  const state = collectStateFromForm();
+  try {
+    runStabilityCheck(state, state.designControl.activeCombination || 'C1');
+  } catch (e) {
+    alert('Stability search failed: ' + e.message);
+    return;
+  }
+  // Re-render results + diagram with the new stability result
+  renderResultsPanel(AppState.lastResults || {}, AppState.lastStabilityResult, state);
   refreshDiagram();
 }
 

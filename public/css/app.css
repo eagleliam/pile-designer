@@ -701,3 +701,21 @@ tr:nth-child(even) td { background:var(--surface2); }
   .view-tabs, .sp-modal { display: none !important; }
   .factors-table { font-size: 9pt; }
 }
+
+/* ─── Pile properties read-out grid ─── */
+.pile-props-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.pile-prop {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--red);
+  border-radius: 3px;
+  padding: 6px 10px;
+}
+.pile-prop-key { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+.pile-prop-val { font-size: 13px; color: var(--text); margin-top: 2px; }

@@ -34,6 +34,7 @@ window.AppState = {
   passiveSoils: [],
   surcharges:   [],
   props:        [],
+  soilLibrary:  [],   // built-in presets + user-added templates; persisted with the design
   wall: { type: 'cantilever', sectionId: 'AZ-26-700', steelGrade: 'S355GP', length_m: 8.50 },
   view: 'outline',
   rotational: {
@@ -50,6 +51,18 @@ window.AppState = {
 };
 
 let _autoSaveTimer = null;
+let _recalcTimer   = null;
+
+// Debounced live recalc — called from every input that affects results.
+// Skips Bishop rotational stability (slower) unless the rotational view is active.
+function triggerRecalc() {
+  clearTimeout(_recalcTimer);
+  _recalcTimer = setTimeout(() => {
+    if (typeof runAllDesigns === 'function') {
+      runAllDesigns({ skipStability: AppState.view !== 'rotational' });
+    }
+  }, 250);
+}
 
 function markDirty() {
   AppState.isDirty = true;
@@ -110,6 +123,7 @@ function collectStateFromForm() {
     passiveSoils:  AppState.passiveSoils,
     surcharges:    AppState.surcharges,
     props:         AppState.props,
+    soilLibrary:   AppState.soilLibrary,
     wall:          AppState.wall,
     view:          AppState.view,
     rotational:    { ...AppState.rotational, lastResult: undefined }   // never persist big results
@@ -170,9 +184,17 @@ function populateFormFromState(state) {
   AppState.passiveSoils = (state.passiveSoils || []).map(s => ({ ...s }));
   AppState.surcharges   = (state.surcharges   || []).map(s => ({ ...s }));
   AppState.props        = (state.props        || []).map(p => ({ ...p }));
-  if (typeof renderSoils       === 'function') renderSoils();
-  if (typeof renderSurcharges  === 'function') renderSurcharges();
-  if (typeof renderProps       === 'function') renderProps();
+  // Soil library: use what was saved, otherwise seed from built-in presets
+  if (Array.isArray(state.soilLibrary) && state.soilLibrary.length) {
+    AppState.soilLibrary = state.soilLibrary.map(s => ({ ...s }));
+  } else if (typeof window !== 'undefined' && window.SOIL_PRESETS) {
+    AppState.soilLibrary = window.SOIL_PRESETS.map(s => ({ ...s, builtin: true }));
+  }
+  if (typeof renderSoils               === 'function') renderSoils();
+  if (typeof renderSurcharges          === 'function') renderSurcharges();
+  if (typeof renderProps               === 'function') renderProps();
+  if (typeof renderSoilLibrary         === 'function') renderSoilLibrary();
+  if (typeof renderPilePropertiesPanel === 'function') renderPilePropertiesPanel();
 
   // Rotational
   if (state.rotational) Object.assign(AppState.rotational, state.rotational);

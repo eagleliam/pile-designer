@@ -1,0 +1,21 @@
+{
+  "_meta": {
+    "source": "Indicative values for preliminary design. Always verify against site-specific GI for final design.",
+    "fields": "type=drained|undrained, gamma=bulk unit weight kN/m3, gamma_sat=saturated kN/m3, phi=effective friction angle deg, c_eff=effective cohesion kPa, cu=undrained shear strength kPa, E_MPa=Young's modulus (drained E', undrained Eu) MPa, delta_active/passive=δ as fraction of φ'"
+  },
+  "presets": [
+    { "id": "made-ground",        "name": "Made ground (granular)",         "type": "drained",   "gamma": 18, "gamma_sat": 19, "phi": 28, "c_eff": 0,  "cu": 0,   "E_MPa": 10,  "delta_active": 0.667, "delta_passive": 0.5 },
+    { "id": "granular-fill-6f5",  "name": "Granular fill (Class 6F5)",      "type": "drained",   "gamma": 19, "gamma_sat": 20, "phi": 36, "c_eff": 0,  "cu": 0,   "E_MPa": 50,  "delta_active": 0.667, "delta_passive": 0.5 },
+    { "id": "loose-sand",         "name": "Loose sand",                     "type": "drained",   "gamma": 17, "gamma_sat": 18, "phi": 28, "c_eff": 0,  "cu": 0,   "E_MPa": 15,  "delta_active": 0.667, "delta_passive": 0.5 },
+    { "id": "medium-sand",        "name": "Medium dense sand",              "type": "drained",   "gamma": 18, "gamma_sat": 19, "phi": 33, "c_eff": 0,  "cu": 0,   "E_MPa": 40,  "delta_active": 0.667, "delta_passive": 0.5 },
+    { "id": "dense-sand",         "name": "Dense sand",                     "type": "drained",   "gamma": 19, "gamma_sat": 20, "phi": 38, "c_eff": 0,  "cu": 0,   "E_MPa": 80,  "delta_active": 0.667, "delta_passive": 0.5 },
+    { "id": "very-dense-sand",    "name": "Very dense sand / dense gravel", "type": "drained",   "gamma": 20, "gamma_sat": 21, "phi": 42, "c_eff": 0,  "cu": 0,   "E_MPa": 150, "delta_active": 0.667, "delta_passive": 0.5 },
+    { "id": "soft-clay",          "name": "Soft clay (cu = 25)",            "type": "undrained", "gamma": 17, "gamma_sat": 18, "phi": 0,  "c_eff": 0,  "cu": 25,  "E_MPa": 5,   "delta_active": 0.5,   "delta_passive": 0.5 },
+    { "id": "firm-clay",          "name": "Firm clay (cu = 50)",            "type": "undrained", "gamma": 18, "gamma_sat": 19, "phi": 0,  "c_eff": 0,  "cu": 50,  "E_MPa": 15,  "delta_active": 0.5,   "delta_passive": 0.5 },
+    { "id": "stiff-clay",         "name": "Stiff clay (cu = 100)",          "type": "undrained", "gamma": 19, "gamma_sat": 20, "phi": 0,  "c_eff": 5,  "cu": 100, "E_MPa": 35,  "delta_active": 0.5,   "delta_passive": 0.5 },
+    { "id": "very-stiff-clay",    "name": "Very stiff to hard clay (cu = 200)", "type": "undrained", "gamma": 20, "gamma_sat": 21, "phi": 0, "c_eff": 10, "cu": 200, "E_MPa": 80,  "delta_active": 0.5,   "delta_passive": 0.5 },
+    { "id": "london-clay-overall","name": "London Clay (overall, undrained)","type": "undrained","gamma": 19, "gamma_sat": 20, "phi": 0,  "c_eff": 5,  "cu": 100, "E_MPa": 50,  "delta_active": 0.5,   "delta_passive": 0.5 },
+    { "id": "london-clay-drained","name": "London Clay (drained / long-term)","type": "drained","gamma": 19, "gamma_sat": 20, "phi": 23, "c_eff": 5,  "cu": 0,   "E_MPa": 30,  "delta_active": 0.667, "delta_passive": 0.5 },
+    { "id": "weathered-rock",     "name": "Weathered rock (Grade IV–V)",    "type": "drained",   "gamma": 21, "gamma_sat": 22, "phi": 40, "c_eff": 50, "cu": 0,   "E_MPa": 150, "delta_active": 0.667, "delta_passive": 0.5 }
+  ]
+}

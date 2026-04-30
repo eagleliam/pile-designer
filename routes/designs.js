@@ -28,14 +28,15 @@ function defaultState() {
       seepage: 'hydrostatic'
     },
     activeSoils: [
-      { id: 'as-1', name: 'Made Ground',     topLevel_m:  0.00, gamma: 18, gamma_sat: 19, phi: 28, c_eff: 0,  cu: 0,  type: 'drained',   delta_active: 0.667, delta_passive: 0.500 },
-      { id: 'as-2', name: 'Soft Clay',       topLevel_m: -2.00, gamma: 17, gamma_sat: 18, phi: 0,  c_eff: 0,  cu: 30, type: 'undrained', delta_active: 0.667, delta_passive: 0.500 },
-      { id: 'as-3', name: 'Dense Sand',      topLevel_m: -5.00, gamma: 19, gamma_sat: 20, phi: 36, c_eff: 0,  cu: 0,  type: 'drained',   delta_active: 0.667, delta_passive: 0.500 }
+      { id: 'as-1', name: 'Made Ground',     topLevel_m:  0.00, gamma: 18, gamma_sat: 19, phi: 28, c_eff: 0,  cu: 0,  E_MPa: 10, type: 'drained',   delta_active: 0.667, delta_passive: 0.500 },
+      { id: 'as-2', name: 'Soft Clay',       topLevel_m: -2.00, gamma: 17, gamma_sat: 18, phi: 0,  c_eff: 0,  cu: 30, E_MPa: 5,  type: 'undrained', delta_active: 0.667, delta_passive: 0.500 },
+      { id: 'as-3', name: 'Dense Sand',      topLevel_m: -5.00, gamma: 19, gamma_sat: 20, phi: 36, c_eff: 0,  cu: 0,  E_MPa: 60, type: 'drained',   delta_active: 0.667, delta_passive: 0.500 }
     ],
     passiveSoils: [
-      { id: 'ps-1', name: 'Soft Clay',       topLevel_m: -4.00, gamma: 17, gamma_sat: 18, phi: 0,  c_eff: 0,  cu: 30, type: 'undrained', delta_active: 0.667, delta_passive: 0.500 },
-      { id: 'ps-2', name: 'Dense Sand',      topLevel_m: -5.00, gamma: 19, gamma_sat: 20, phi: 36, c_eff: 0,  cu: 0,  type: 'drained',   delta_active: 0.667, delta_passive: 0.500 }
+      { id: 'ps-1', name: 'Soft Clay',       topLevel_m: -4.00, gamma: 17, gamma_sat: 18, phi: 0,  c_eff: 0,  cu: 30, E_MPa: 5,  type: 'undrained', delta_active: 0.667, delta_passive: 0.500 },
+      { id: 'ps-2', name: 'Dense Sand',      topLevel_m: -5.00, gamma: 19, gamma_sat: 20, phi: 36, c_eff: 0,  cu: 0,  E_MPa: 60, type: 'drained',   delta_active: 0.667, delta_passive: 0.500 }
     ],
+    soilLibrary: [],
     surcharges: [
       { id: 'sc-1', kind: 'uniform', q: 10, side: 'active', loadType: 'permanent' }
     ],

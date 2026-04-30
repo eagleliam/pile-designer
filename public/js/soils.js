@@ -5,22 +5,44 @@ function _newId(prefix) { return prefix + '-' + Math.random().toString(36).slice
 
 // ─── Soils ───────────────────────────────────────────────────────────────────
 
-function addSoilLayer(side) {
+function addSoilLayer(side, presetId) {
   const arr = side === 'active' ? AppState.activeSoils : AppState.passiveSoils;
   const last = arr[arr.length - 1];
   const newTop = last ? last.topLevel_m - 2.0 : (side === 'active' ? AppState.geometry.activeGroundLevel_m : AppState.geometry.passiveGroundLevel_m);
+  const base = presetId ? AppState.soilLibrary.find(s => s.id === presetId) : null;
   arr.push({
     id: _newId(side === 'active' ? 'as' : 'ps'),
-    name: 'New layer',
+    name: base ? base.name : 'New layer',
     topLevel_m: newTop,
-    gamma: 18, gamma_sat: 19,
-    phi: 30, c_eff: 0, cu: 0,
-    type: 'drained',
-    delta_active: 0.667, delta_passive: 0.5
+    gamma:        base ? base.gamma        : 18,
+    gamma_sat:    base ? base.gamma_sat    : 19,
+    phi:          base ? base.phi          : 30,
+    c_eff:        base ? base.c_eff        : 0,
+    cu:           base ? base.cu           : 0,
+    E_MPa:        base ? (base.E_MPa ?? 30) : 30,
+    type:         base ? base.type         : 'drained',
+    delta_active: base ? (base.delta_active  ?? 0.667) : 0.667,
+    delta_passive:base ? (base.delta_passive ?? 0.5)   : 0.5
   });
   renderSoils();
   markDirty(); scheduleAutoSave();
   refreshDiagram();
+  triggerRecalc();
+}
+
+function applyPresetToLayer(side, layerId, presetId) {
+  if (!presetId) return;
+  const arr = side === 'active' ? AppState.activeSoils : AppState.passiveSoils;
+  const layer = arr.find(s => s.id === layerId);
+  const preset = AppState.soilLibrary.find(s => s.id === presetId);
+  if (!layer || !preset) return;
+  // Preserve id + topLevel_m; copy everything else from the preset
+  const { id, topLevel_m } = layer;
+  Object.assign(layer, { ...preset, id, topLevel_m });
+  renderSoils();
+  markDirty(); scheduleAutoSave();
+  refreshDiagram();
+  triggerRecalc();
 }
 
 function removeSoilLayer(side, id) {
@@ -30,6 +52,7 @@ function removeSoilLayer(side, id) {
   renderSoils();
   markDirty(); scheduleAutoSave();
   refreshDiagram();
+  triggerRecalc();
 }
 
 function updateSoilField(side, id, field, raw) {
@@ -44,6 +67,27 @@ function updateSoilField(side, id, field, raw) {
   }
   markDirty(); scheduleAutoSave();
   refreshDiagram();
+  triggerRecalc();
+}
+
+function saveSoilToLibrary(side, layerId) {
+  const arr = side === 'active' ? AppState.activeSoils : AppState.passiveSoils;
+  const layer = arr.find(s => s.id === layerId);
+  if (!layer) return;
+  const name = prompt('Save this soil to the library as:', layer.name);
+  if (!name) return;
+  AppState.soilLibrary.push({
+    id: 'usr-' + Math.random().toString(36).slice(2, 8),
+    name,
+    type: layer.type,
+    gamma: layer.gamma, gamma_sat: layer.gamma_sat,
+    phi: layer.phi, c_eff: layer.c_eff, cu: layer.cu, E_MPa: layer.E_MPa,
+    delta_active: layer.delta_active, delta_passive: layer.delta_passive,
+    builtin: false
+  });
+  renderSoils();             // refresh dropdowns
+  renderSoilLibrary();
+  markDirty(); scheduleAutoSave();
 }
 
 function renderSoils() {
@@ -59,31 +103,82 @@ function renderSoilSide(side) {
     host.innerHTML = `<div class="info-box">No ${side}-side soil layers. Add one below.</div>`;
     return;
   }
+  const presetOptions = AppState.soilLibrary
+    .map(p => `<option value="${p.id}">${escHtml(p.name)}${p.builtin ? '' : ' ★'}</option>`)
+    .join('');
+
   host.innerHTML = arr.map((s, i) => `
     <div class="layer-card">
       <div class="layer-card-header">
         <h3>Layer ${i+1}: ${escHtml(s.name)}</h3>
-        <button class="btn-remove" onclick="removeSoilLayer('${side}','${s.id}')">Remove</button>
+        <div style="display:flex;gap:6px">
+          <button class="btn-edit-rev" onclick="saveSoilToLibrary('${side}','${s.id}')" title="Save these parameters as a named soil in the library">+ Save to library</button>
+          <button class="btn-remove" onclick="removeSoilLayer('${side}','${s.id}')">Remove</button>
+        </div>
       </div>
       <div class="form-grid">
         <div class="form-group"><label>Name</label><input value="${escAttr(s.name)}" oninput="updateSoilField('${side}','${s.id}','name',this.value)"></div>
+        <div class="form-group"><label>Apply preset</label>
+          <select onchange="applyPresetToLayer('${side}','${s.id}',this.value); this.value=''">
+            <option value="">— pick a preset —</option>
+            ${presetOptions}
+          </select>
+        </div>
         <div class="form-group"><label>Top level (m)</label><input type="number" step="0.1" value="${s.topLevel_m}" oninput="updateSoilField('${side}','${s.id}','topLevel_m',this.value)"></div>
-        <div class="form-group"><label>γ (kN/m³)</label><input type="number" step="0.1" value="${s.gamma}" oninput="updateSoilField('${side}','${s.id}','gamma',this.value)"></div>
-        <div class="form-group"><label>γ_sat (kN/m³)</label><input type="number" step="0.1" value="${s.gamma_sat}" oninput="updateSoilField('${side}','${s.id}','gamma_sat',this.value)"></div>
         <div class="form-group"><label>Type</label>
           <select onchange="updateSoilField('${side}','${s.id}','type',this.value)">
             <option value="drained"   ${s.type === 'drained'   ? 'selected' : ''}>Drained (effective)</option>
             <option value="undrained" ${s.type === 'undrained' ? 'selected' : ''}>Undrained (total)</option>
           </select>
         </div>
+        <div class="form-group"><label>γ (kN/m³)</label><input type="number" step="0.1" value="${s.gamma}" oninput="updateSoilField('${side}','${s.id}','gamma',this.value)"></div>
+        <div class="form-group"><label>γ_sat (kN/m³)</label><input type="number" step="0.1" value="${s.gamma_sat}" oninput="updateSoilField('${side}','${s.id}','gamma_sat',this.value)"></div>
         <div class="form-group"><label>φ' (°)</label><input type="number" step="0.5" value="${s.phi}" oninput="updateSoilField('${side}','${s.id}','phi',this.value)"></div>
         <div class="form-group"><label>c' (kPa)</label><input type="number" step="0.5" value="${s.c_eff}" oninput="updateSoilField('${side}','${s.id}','c_eff',this.value)"></div>
         <div class="form-group"><label>cu (kPa)</label><input type="number" step="1"   value="${s.cu}"    oninput="updateSoilField('${side}','${s.id}','cu',this.value)"></div>
+        <div class="form-group"><label>E (MPa)</label><input type="number" step="1"   value="${s.E_MPa ?? 30}" oninput="updateSoilField('${side}','${s.id}','E_MPa',this.value)"></div>
         <div class="form-group"><label>δ_a / φ'</label><input type="number" step="0.05" value="${s.delta_active}"  oninput="updateSoilField('${side}','${s.id}','delta_active',this.value)"></div>
         <div class="form-group"><label>δ_p / φ'</label><input type="number" step="0.05" value="${s.delta_passive}" oninput="updateSoilField('${side}','${s.id}','delta_passive',this.value)"></div>
       </div>
     </div>
   `).join('');
+}
+
+// ─── Soil Library section ─────────────────────────────────────────────────────
+
+function renderSoilLibrary() {
+  const host = document.getElementById('soilLibraryList');
+  if (!host) return;
+  if (!AppState.soilLibrary.length) {
+    host.innerHTML = `<div class="info-box">No soils in library yet. Add layers below and click "+ Save to library" on any layer to reuse it.</div>`;
+    return;
+  }
+  host.innerHTML = `<table class="rev-history-table">
+    <thead><tr><th>Name</th><th>Type</th><th>γ / γsat</th><th>φ'</th><th>c'</th><th>cu</th><th>E</th><th></th></tr></thead>
+    <tbody>${AppState.soilLibrary.map(s => `
+      <tr>
+        <td><strong>${escHtml(s.name)}</strong>${s.builtin ? '' : ' <span style="color:var(--red)">★</span>'}</td>
+        <td>${s.type === 'undrained' ? 'Undrained' : 'Drained'}</td>
+        <td>${s.gamma} / ${s.gamma_sat}</td>
+        <td>${s.phi}°</td>
+        <td>${s.c_eff}</td>
+        <td>${s.cu}</td>
+        <td>${s.E_MPa ?? '—'}</td>
+        <td>${s.builtin ? '' : `<button class="btn-edit-rev" onclick="removeFromSoilLibrary('${s.id}')">Remove</button>`}</td>
+      </tr>`).join('')}</tbody></table>
+    <div style="font-size:11px;color:var(--text-dim);font-family:var(--mono);margin-top:6px">
+      ★ = user-added soil (saved with this design). Built-in presets are loaded from <code>/data/soil-presets.json</code>.
+    </div>`;
+}
+
+function removeFromSoilLibrary(id) {
+  const idx = AppState.soilLibrary.findIndex(s => s.id === id);
+  if (idx < 0) return;
+  if (AppState.soilLibrary[idx].builtin) return;     // built-ins cannot be removed
+  AppState.soilLibrary.splice(idx, 1);
+  renderSoils();
+  renderSoilLibrary();
+  markDirty(); scheduleAutoSave();
 }
 
 // ─── Surcharges ──────────────────────────────────────────────────────────────
@@ -95,6 +190,7 @@ function addSurcharge(kind) {
   renderSurcharges();
   markDirty(); scheduleAutoSave();
   refreshDiagram();
+  triggerRecalc();
 }
 
 function removeSurcharge(id) {
@@ -103,6 +199,7 @@ function removeSurcharge(id) {
   renderSurcharges();
   markDirty(); scheduleAutoSave();
   refreshDiagram();
+  triggerRecalc();
 }
 
 function updateSurchargeField(id, field, raw) {
@@ -120,6 +217,7 @@ function updateSurchargeField(id, field, raw) {
   renderSurcharges();
   markDirty(); scheduleAutoSave();
   refreshDiagram();
+  triggerRecalc();
 }
 
 function renderSurcharges() {
@@ -176,6 +274,7 @@ function addProp() {
   syncWallTypeFromProps();
   markDirty(); scheduleAutoSave();
   refreshDiagram();
+  triggerRecalc();
 }
 
 function removeProp(id) {
@@ -185,6 +284,7 @@ function removeProp(id) {
   syncWallTypeFromProps();
   markDirty(); scheduleAutoSave();
   refreshDiagram();
+  triggerRecalc();
 }
 
 function updatePropField(id, field, raw) {
@@ -194,6 +294,7 @@ function updatePropField(id, field, raw) {
   else { const v = parseFloat(raw); if (!isNaN(v)) p[field] = v; }
   markDirty(); scheduleAutoSave();
   refreshDiagram();
+  triggerRecalc();
 }
 
 function syncWallTypeFromProps() {
