@@ -55,8 +55,8 @@ function renderDiagramSVG(state) {
   svg += `<rect x="0" y="0" width="${SVG_W}" height="${SVG_H}" fill="#f7f5f3"/>`;
 
   // ── Soils (active = left, passive = right) ───────────────────────────────
-  svg += renderSoilSide(state.activeSoils,  g.activeGroundLevel_m,  X(xLeft), X(0), Y, yMin);
-  svg += renderSoilSide(state.passiveSoils, g.passiveGroundLevel_m, X(0),     X(xRight), Y, yMin);
+  svg += _renderSoilSvg(state.activeSoils,  g.activeGroundLevel_m,  X(xLeft), X(0), Y, yMin);
+  svg += _renderSoilSvg(state.passiveSoils, g.passiveGroundLevel_m, X(0),     X(xRight), Y, yMin);
 
   // ── Water levels ─────────────────────────────────────────────────────────
   svg += `<rect x="${X(xLeft)}" y="${Y(g.activeWaterLevel_m)}" width="${X(0) - X(xLeft)}" height="${Y(yMin) - Y(g.activeWaterLevel_m)}" fill="url(#hatchWater)" pointer-events="none"/>`;
@@ -138,7 +138,7 @@ function renderDiagramSVG(state) {
   return svg;
 }
 
-function renderSoilSide(soils, groundLevel, xL, xR, Y, yMin) {
+function _renderSoilSvg(soils, groundLevel, xL, xR, Y, yMin) {
   const sorted = [...soils].sort((a, b) => b.topLevel_m - a.topLevel_m);
   let s = '';
   for (let i = 0; i < sorted.length; i++) {

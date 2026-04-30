@@ -242,6 +242,5 @@ function renderProps() {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+// escHtml is defined globally in ui/designPanel.js
 function escAttr(s) { return escHtml(s); }
