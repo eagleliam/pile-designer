@@ -135,6 +135,7 @@
     <div class="section">
       <div class="section-header"><h2>Cross Section</h2><span class="section-tag">Diagram</span></div>
       <div class="section-body">
+        <div id="stageStrip" class="load-case-strip no-print"></div>
         <div class="view-tabs no-print">
           <div class="view-tab active" data-view="outline"     onclick="setActiveView('outline')">Outline</div>
           <div class="view-tab"        data-view="gross"       onclick="setActiveView('gross')">Gross pressures</div>
@@ -166,14 +167,8 @@
               <option value="steady">Steady-state seepage</option>
             </select>
           </div>
-          <div class="form-group"><label>Wall length (m) — computed</label><input id="wallLength" type="number" step="0.01" readonly title="Wall length is derived from wall top, passive ground level, and trial embedment."></div>
-          <div class="form-group"><label>Wall type</label>
-            <select id="wallType" onchange="AppState.wall.type=this.value;markDirty();scheduleAutoSave();refreshDiagram();triggerRecalc()">
-              <option value="cantilever">Cantilever</option>
-              <option value="singleprop">Single prop / anchor</option>
-              <option value="multiprop">Multi-prop</option>
-            </select>
-          </div>
+          <div class="form-group"><label>Wall length (m) — computed</label><input id="wallLength" type="number" step="0.01" readonly title="Wall length is derived from wall top, deepest dredge across stages, and trial embedment."></div>
+          <div class="form-group"><label>Wall type — auto from props</label><input id="wallType" type="text" readonly value="cantilever" title="Cantilever (no props), single-prop (1 prop) or multi-prop (2+ props), set automatically per stage."></div>
         </div>
       </div>
     </div>
@@ -239,8 +234,9 @@
 
     <!-- Surcharges -->
     <div class="section">
-      <div class="section-header"><h2>Surcharges</h2><span class="section-tag">Input</span></div>
+      <div class="section-header"><h2>Surcharges</h2><span class="section-tag">Per stage</span></div>
       <div class="section-body">
+        <div class="info-box">Surcharges are defined per stage — switch stages above to edit a different stage's loads.</div>
         <div id="surchargesList"></div>
         <div style="display:flex;gap:8px;margin-top:8px;">
           <button class="btn-add" onclick="addSurcharge('uniform')">+ Add uniform surcharge</button>
@@ -251,8 +247,9 @@
 
     <!-- Props -->
     <div class="section">
-      <div class="section-header"><h2>Props / Anchors</h2><span class="section-tag">Input</span></div>
+      <div class="section-header"><h2>Props / Anchors</h2><span class="section-tag">Per stage</span></div>
       <div class="section-body">
+        <div class="info-box">Props are defined per stage — install at one stage, remove at another. Wall type (cantilever / single-prop / multi-prop) is set automatically from the prop count.</div>
         <div id="propsList"></div>
         <button class="btn-add" onclick="addProp()" style="margin-top:8px;">+ Add prop</button>
       </div>
@@ -332,6 +329,7 @@
 <script src="/js/ui/designPanel.js"></script>
 <script src="/js/ui/revisionPanel.js"></script>
 <script src="/js/ui/sectionPicker.js"></script>
+<script src="/js/ui/stagePanel.js"></script>
 
 <script>
 // Boot
@@ -344,9 +342,9 @@
     geometry: AppState.geometry,
     activeSoils: AppState.activeSoils,
     passiveSoils: AppState.passiveSoils,
-    surcharges: AppState.surcharges,
-    props: AppState.props,
     soilLibrary: AppState.soilLibrary,
+    stages: AppState.stages,
+    activeStageId: AppState.activeStageId,
     wall: AppState.wall,
     designControl: AppState.designControl,
     rotational: AppState.rotational,

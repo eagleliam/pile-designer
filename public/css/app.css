@@ -719,3 +719,23 @@ tr:nth-child(even) td { background:var(--surface2); }
 }
 .pile-prop-key { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
 .pile-prop-val { font-size: 13px; color: var(--text); margin-top: 2px; }
+
+/* ─── Stage tabs (reuse load-case-strip layout but distinct styling) ─── */
+.stage-tab {
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+  padding: 7px 14px;
+  border: 1px solid var(--border-strong);
+  border-bottom: 2px solid transparent;
+  border-radius: 4px 4px 0 0;
+  background: var(--surface2); color: var(--text-dim);
+  cursor: pointer; margin-bottom: -2px;
+  transition: all 0.1s;
+}
+.stage-tab:hover { color: var(--red); border-color: var(--red); }
+.stage-tab.active {
+  background: var(--surface);
+  color: var(--red);
+  border-color: var(--red);
+  border-bottom-color: var(--surface);
+  font-weight: 700;
+}

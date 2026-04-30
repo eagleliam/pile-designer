@@ -183,10 +183,13 @@ function removeFromSoilLibrary(id) {
 
 // ─── Surcharges ──────────────────────────────────────────────────────────────
 
+function _activeSurcharges() { return activeStage()?.surcharges || []; }
+function _activeProps()      { return activeStage()?.props      || []; }
+
 function addSurcharge(kind) {
   const sc = { id: _newId('sc'), kind: kind || 'uniform', q: 10, side: 'active', loadType: 'permanent' };
   if (kind === 'strip') Object.assign(sc, { width: 2, offset: 1 });
-  AppState.surcharges.push(sc);
+  _activeSurcharges().push(sc);
   renderSurcharges();
   markDirty(); scheduleAutoSave();
   refreshDiagram();
@@ -194,8 +197,9 @@ function addSurcharge(kind) {
 }
 
 function removeSurcharge(id) {
-  const idx = AppState.surcharges.findIndex(s => s.id === id);
-  if (idx >= 0) AppState.surcharges.splice(idx, 1);
+  const arr = _activeSurcharges();
+  const idx = arr.findIndex(s => s.id === id);
+  if (idx >= 0) arr.splice(idx, 1);
   renderSurcharges();
   markDirty(); scheduleAutoSave();
   refreshDiagram();
@@ -203,7 +207,7 @@ function removeSurcharge(id) {
 }
 
 function updateSurchargeField(id, field, raw) {
-  const sc = AppState.surcharges.find(s => s.id === id);
+  const sc = _activeSurcharges().find(s => s.id === id);
   if (!sc) return;
   if (field === 'kind' || field === 'side' || field === 'loadType') {
     sc[field] = raw;
@@ -223,11 +227,12 @@ function updateSurchargeField(id, field, raw) {
 function renderSurcharges() {
   const host = document.getElementById('surchargesList');
   if (!host) return;
-  if (!AppState.surcharges.length) {
-    host.innerHTML = `<div class="info-box">No surcharges defined. Add a uniform or strip load below.</div>`;
+  const arr = _activeSurcharges();
+  if (!arr.length) {
+    host.innerHTML = `<div class="info-box">No surcharges defined for this stage. Add a uniform or strip load below.</div>`;
     return;
   }
-  host.innerHTML = AppState.surcharges.map((sc, i) => {
+  host.innerHTML = arr.map((sc, i) => {
     const stripFields = sc.kind === 'strip' ? `
       <div class="form-group"><label>Width b (m)</label><input type="number" step="0.1" value="${sc.width}" oninput="updateSurchargeField('${sc.id}','width',this.value)"></div>
       <div class="form-group"><label>Offset a (m)</label><input type="number" step="0.1" value="${sc.offset}" oninput="updateSurchargeField('${sc.id}','offset',this.value)"></div>
@@ -267,28 +272,28 @@ function renderSurcharges() {
 // ─── Props ───────────────────────────────────────────────────────────────────
 
 function addProp() {
-  const last = AppState.props[AppState.props.length - 1];
+  const arr  = _activeProps();
+  const last = arr[arr.length - 1];
   const lvl  = last ? last.level_m - 2.0 : (AppState.geometry.wallTopLevel_m - 0.5);
-  AppState.props.push({ id: _newId('pr'), level_m: lvl, stiffness: 'rigid', type: 'permanent' });
+  arr.push({ id: _newId('pr'), level_m: lvl, stiffness: 'rigid', type: 'permanent' });
   renderProps();
-  syncWallTypeFromProps();
   markDirty(); scheduleAutoSave();
   refreshDiagram();
   triggerRecalc();
 }
 
 function removeProp(id) {
-  const idx = AppState.props.findIndex(p => p.id === id);
-  if (idx >= 0) AppState.props.splice(idx, 1);
+  const arr = _activeProps();
+  const idx = arr.findIndex(p => p.id === id);
+  if (idx >= 0) arr.splice(idx, 1);
   renderProps();
-  syncWallTypeFromProps();
   markDirty(); scheduleAutoSave();
   refreshDiagram();
   triggerRecalc();
 }
 
 function updatePropField(id, field, raw) {
-  const p = AppState.props.find(pp => pp.id === id);
+  const p = _activeProps().find(pp => pp.id === id);
   if (!p) return;
   if (field === 'stiffness' || field === 'type') p[field] = raw;
   else { const v = parseFloat(raw); if (!isNaN(v)) p[field] = v; }
@@ -297,27 +302,15 @@ function updatePropField(id, field, raw) {
   triggerRecalc();
 }
 
-function syncWallTypeFromProps() {
-  // Auto-select wall type if user adds props (but don't override an explicit choice if they pick differently)
-  const sel = document.getElementById('wallType');
-  if (!sel) return;
-  if (AppState.props.length === 0 && AppState.wall.type !== 'cantilever') {
-    AppState.wall.type = 'cantilever'; sel.value = 'cantilever';
-  } else if (AppState.props.length === 1 && AppState.wall.type === 'cantilever') {
-    AppState.wall.type = 'singleprop'; sel.value = 'singleprop';
-  } else if (AppState.props.length >= 2 && AppState.wall.type !== 'multiprop') {
-    AppState.wall.type = 'multiprop'; sel.value = 'multiprop';
-  }
-}
-
 function renderProps() {
   const host = document.getElementById('propsList');
   if (!host) return;
-  if (!AppState.props.length) {
-    host.innerHTML = `<div class="info-box">No props. Cantilever wall — fixity provided entirely by the embedded passive zone.</div>`;
+  const arr = _activeProps();
+  if (!arr.length) {
+    host.innerHTML = `<div class="info-box">No props installed at this stage. Cantilever wall — fixity from passive zone only.</div>`;
     return;
   }
-  host.innerHTML = AppState.props.map((p, i) => `
+  host.innerHTML = arr.map((p, i) => `
     <div class="layer-card">
       <div class="layer-card-header">
         <h3>Prop ${i+1}</h3>

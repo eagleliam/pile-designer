@@ -21,20 +21,19 @@ window.AppState = {
     globalFoS_passive: 2.0,
     embedmentSafetyFactor: 1.20
   },
-  geometry: {
-    activeGroundLevel_m: 0.00,
-    passiveGroundLevel_m: -4.00,
-    wallTopLevel_m: 0.50,
-    trialEmbedment_m: 4.00,
-    activeWaterLevel_m: -2.00,
-    passiveWaterLevel_m: -4.00,
-    seepage: 'hydrostatic'
-  },
+  // Shared geometry — wall top + active GL + trial embedment apply across stages.
+  geometry: { activeGroundLevel_m: 0.00, wallTopLevel_m: 0.50, trialEmbedment_m: 4.00 },
+  // Shared stratigraphy
   activeSoils:  [],
   passiveSoils: [],
-  surcharges:   [],
-  props:        [],
-  soilLibrary:  [],   // built-in presets + user-added templates; persisted with the design
+  soilLibrary:  [],
+  // Per-stage data: each stage carries its own dredge level, water levels, surcharges, props
+  stages: [{
+    id: 'stage-1', name: 'Final excavation',
+    passiveGroundLevel_m: -4.00, activeWaterLevel_m: -2.00, passiveWaterLevel_m: -4.00, seepage: 'hydrostatic',
+    surcharges: [], props: []
+  }],
+  activeStageId: 'stage-1',
   wall: { type: 'cantilever', sectionId: 'AZ-26-700', steelGrade: 'S355GP', length_m: 8.50 },
   view: 'outline',
   rotational: {
@@ -87,20 +86,25 @@ function scheduleAutoSave() {
 // ─── Collect / populate ──────────────────────────────────────────────────────
 
 function collectStateFromForm() {
-  // Geometry
+  // Shared geometry
   const g = AppState.geometry;
-  g.activeGroundLevel_m  = numVal('geomActiveGround');
-  g.passiveGroundLevel_m = numVal('geomPassiveGround');
-  g.wallTopLevel_m       = numVal('geomWallTop');
-  g.trialEmbedment_m     = numVal('geomEmbedment');
-  g.activeWaterLevel_m   = numVal('geomActiveWater');
-  g.passiveWaterLevel_m  = numVal('geomPassiveWater');
-  g.seepage              = document.getElementById('geomSeepage')?.value || 'hydrostatic';
+  g.activeGroundLevel_m = numVal('geomActiveGround');
+  g.wallTopLevel_m      = numVal('geomWallTop');
+  g.trialEmbedment_m    = numVal('geomEmbedment');
 
-  // Wall — length is derived from trial embedment + (wallTop − passiveGround)
-  AppState.wall.type        = document.getElementById('wallType')?.value || 'cantilever';
+  // Active stage's per-stage data (geometry + water + seepage)
+  const stage = activeStage();
+  if (stage) {
+    stage.passiveGroundLevel_m = numVal('geomPassiveGround');
+    stage.activeWaterLevel_m   = numVal('geomActiveWater');
+    stage.passiveWaterLevel_m  = numVal('geomPassiveWater');
+    stage.seepage              = document.getElementById('geomSeepage')?.value || 'hydrostatic';
+  }
+
+  // Wall is shared
   AppState.wall.steelGrade  = document.getElementById('wallSteelGrade')?.value || 'S355GP';
   AppState.wall.length_m    = computeWallLength();
+  AppState.wall.type        = deriveWallTypeFromProps(stage?.props || []);
 
   // Design control
   AppState.designControl.mode              = document.getElementById('dcMode')?.value || 'EC7';
@@ -121,12 +125,12 @@ function collectStateFromForm() {
     geometry:      AppState.geometry,
     activeSoils:   AppState.activeSoils,
     passiveSoils:  AppState.passiveSoils,
-    surcharges:    AppState.surcharges,
-    props:         AppState.props,
     soilLibrary:   AppState.soilLibrary,
+    stages:        AppState.stages,
+    activeStageId: AppState.activeStageId,
     wall:          AppState.wall,
     view:          AppState.view,
-    rotational:    { ...AppState.rotational, lastResult: undefined }   // never persist big results
+    rotational:    { ...AppState.rotational, lastResult: undefined }
   }));
 }
 
@@ -141,15 +145,31 @@ function collectProjectMeta() {
 }
 
 function populateFormFromState(state) {
-  // Geometry
+  // Shared geometry
   Object.assign(AppState.geometry, state.geometry || {});
   setVal('geomActiveGround',  AppState.geometry.activeGroundLevel_m);
-  setVal('geomPassiveGround', AppState.geometry.passiveGroundLevel_m);
   setVal('geomWallTop',       AppState.geometry.wallTopLevel_m);
   setVal('geomEmbedment',     AppState.geometry.trialEmbedment_m);
-  setVal('geomActiveWater',   AppState.geometry.activeWaterLevel_m);
-  setVal('geomPassiveWater',  AppState.geometry.passiveWaterLevel_m);
-  setVal('geomSeepage',       AppState.geometry.seepage || 'hydrostatic');
+
+  // Stages — back-compat: legacy designs may have no stages but a top-level
+  // surcharges/props/passive-ground. Wrap them in a single stage on load.
+  if (Array.isArray(state.stages) && state.stages.length) {
+    AppState.stages = state.stages.map(s => ({ ...s, surcharges: (s.surcharges || []).map(x => ({...x})), props: (s.props || []).map(x => ({...x})) }));
+    AppState.activeStageId = state.activeStageId && AppState.stages.some(s => s.id === state.activeStageId)
+      ? state.activeStageId : AppState.stages[0].id;
+  } else {
+    AppState.stages = [{
+      id: 'stage-1', name: 'Final excavation',
+      passiveGroundLevel_m: state.geometry?.passiveGroundLevel_m ?? -4,
+      activeWaterLevel_m:   state.geometry?.activeWaterLevel_m   ?? -2,
+      passiveWaterLevel_m:  state.geometry?.passiveWaterLevel_m  ?? -4,
+      seepage:              state.geometry?.seepage              ?? 'hydrostatic',
+      surcharges:           (state.surcharges || []).map(x => ({...x})),
+      props:                (state.props      || []).map(x => ({...x}))
+    }];
+    AppState.activeStageId = 'stage-1';
+  }
+  populateActiveStageInputs();
 
   // Wall
   Object.assign(AppState.wall, state.wall || {});
@@ -179,17 +199,16 @@ function populateFormFromState(state) {
   setVal('dcEmbFactor',   AppState.designControl.embedmentSafetyFactor);
   if (typeof renderFactorsTable === 'function') renderFactorsTable();
 
-  // Soils + surcharges + props
+  // Soils (stratigraphy is shared)
   AppState.activeSoils  = (state.activeSoils  || []).map(s => ({ ...s }));
   AppState.passiveSoils = (state.passiveSoils || []).map(s => ({ ...s }));
-  AppState.surcharges   = (state.surcharges   || []).map(s => ({ ...s }));
-  AppState.props        = (state.props        || []).map(p => ({ ...p }));
   // Soil library: use what was saved, otherwise seed from built-in presets
   if (Array.isArray(state.soilLibrary) && state.soilLibrary.length) {
     AppState.soilLibrary = state.soilLibrary.map(s => ({ ...s }));
   } else if (typeof window !== 'undefined' && window.SOIL_PRESETS) {
     AppState.soilLibrary = window.SOIL_PRESETS.map(s => ({ ...s, builtin: true }));
   }
+  if (typeof renderStages              === 'function') renderStages();
   if (typeof renderSoils               === 'function') renderSoils();
   if (typeof renderSurcharges          === 'function') renderSurcharges();
   if (typeof renderProps               === 'function') renderProps();
@@ -233,22 +252,76 @@ function syncProjectMeta() {
   setText('coverProjRev',      AppState.currentRevisionCode || document.getElementById('projRev')?.value || 'P01');
 }
 
+// Push the active stage's per-stage data into the geometry input fields so the
+// user sees the right values when they switch stages.
+function populateActiveStageInputs() {
+  const s = activeStage();
+  if (!s) return;
+  setVal('geomPassiveGround', s.passiveGroundLevel_m);
+  setVal('geomActiveWater',   s.activeWaterLevel_m);
+  setVal('geomPassiveWater',  s.passiveWaterLevel_m);
+  setVal('geomSeepage',       s.seepage || 'hydrostatic');
+}
+
 function setVal(id, v)  { const el = document.getElementById(id);  if (el) el.value = v ?? ''; }
 function setText(id, v) { const el = document.getElementById(id);  if (el) el.textContent = v ?? ''; }
 function numVal(id)     { return parseFloat(document.getElementById(id)?.value); }
 
-// Wall length is derived: total wall = (top − passive ground) + embedment below dredge
-function computeWallLength() {
-  const top  = numVal('geomWallTop');
-  const pgnd = numVal('geomPassiveGround');
-  const emb  = numVal('geomEmbedment');
-  if ([top, pgnd, emb].some(v => isNaN(v))) return AppState.wall.length_m || 0;
-  return (top - pgnd) + emb;
+// ─── Stage helpers ───────────────────────────────────────────────────────────
+
+function activeStage() {
+  return AppState.stages.find(s => s.id === AppState.activeStageId) || AppState.stages[0];
 }
 
-// Refresh the read-only wall-length display + AppState whenever a driver changes
+function deepestPassiveGround() {
+  // The wall must be embedded below the worst-case (deepest) dredge across all stages.
+  return Math.min(...AppState.stages.map(s => s.passiveGroundLevel_m));
+}
+
+// Wall length sized off the deepest dredge across all stages so the same pile
+// is long enough for every stage.
+function computeWallLength() {
+  const top   = numVal('geomWallTop');
+  const emb   = numVal('geomEmbedment');
+  if ([top, emb].some(v => isNaN(v))) return AppState.wall.length_m || 0;
+  const deepest = deepestPassiveGround();
+  return (top - deepest) + emb;
+}
+
 function recomputeWallLength() {
   const L = computeWallLength();
   AppState.wall.length_m = L;
   setVal('wallLength', L.toFixed(2));
+}
+
+// Build the snapshot of state representing a single stage as it should look to
+// the solver — flattens shared + per-stage data into the legacy schema.
+function snapshotForStage(stage) {
+  const g = AppState.geometry;
+  return {
+    project:       collectProjectMeta(),
+    designControl: AppState.designControl,
+    geometry: {
+      activeGroundLevel_m:  g.activeGroundLevel_m,
+      passiveGroundLevel_m: stage.passiveGroundLevel_m,
+      wallTopLevel_m:       g.wallTopLevel_m,
+      trialEmbedment_m:     g.trialEmbedment_m,
+      activeWaterLevel_m:   stage.activeWaterLevel_m,
+      passiveWaterLevel_m:  stage.passiveWaterLevel_m,
+      seepage:              stage.seepage || 'hydrostatic'
+    },
+    activeSoils:  AppState.activeSoils,
+    passiveSoils: AppState.passiveSoils,
+    surcharges:   stage.surcharges || [],
+    props:        stage.props      || [],
+    wall:         { ...AppState.wall, type: deriveWallTypeFromProps(stage.props || []) },
+    rotational:   AppState.rotational,
+    view:         AppState.view
+  };
+}
+
+function deriveWallTypeFromProps(props) {
+  if (!props || props.length === 0) return 'cantilever';
+  if (props.length === 1)            return 'singleprop';
+  return 'multiprop';
 }

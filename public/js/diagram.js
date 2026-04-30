@@ -21,7 +21,13 @@ function setActiveView(view) {
 function refreshDiagram() {
   const host = document.getElementById('sectionDiagram');
   if (!host) return;
-  host.innerHTML = renderDiagramSVG(AppState);
+  // Diagram always reflects the currently active stage
+  const stage = (typeof activeStage === 'function' ? activeStage() : null);
+  if (stage) {
+    host.innerHTML = renderDiagramSVG(snapshotForStage(stage));
+  } else {
+    host.innerHTML = renderDiagramSVG(AppState);
+  }
 }
 
 function renderDiagramSVG(state) {
