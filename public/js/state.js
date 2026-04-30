@@ -29,7 +29,7 @@ window.AppState = {
   soilLibrary:  [],
   // Per-stage data: each stage carries its own dredge level, water levels, surcharges, props
   stages: [{
-    id: 'stage-1', name: 'Final excavation',
+    id: 'stage-1', name: 'Stage 1',
     passiveGroundLevel_m: -4.00, activeWaterLevel_m: -2.00, passiveWaterLevel_m: -4.00, seepage: 'hydrostatic',
     surcharges: [], props: []
   }],
@@ -159,7 +159,7 @@ function populateFormFromState(state) {
       ? state.activeStageId : AppState.stages[0].id;
   } else {
     AppState.stages = [{
-      id: 'stage-1', name: 'Final excavation',
+      id: 'stage-1', name: 'Stage 1',
       passiveGroundLevel_m: state.geometry?.passiveGroundLevel_m ?? -4,
       activeWaterLevel_m:   state.geometry?.activeWaterLevel_m   ?? -2,
       passiveWaterLevel_m:  state.geometry?.passiveWaterLevel_m  ?? -4,

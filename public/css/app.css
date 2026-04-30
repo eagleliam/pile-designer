@@ -739,3 +739,11 @@ tr:nth-child(even) td { background:var(--surface2); }
   border-bottom-color: var(--surface);
   font-weight: 700;
 }
+
+/* ─── Stage tab drag-and-drop visuals ─── */
+.stage-tab { user-select: none; }
+.stage-tab-dragging   { opacity: 0.4; }
+.stage-tab-drop-target {
+  border-left:  3px solid var(--red) !important;
+  background:   var(--red-soft);
+}

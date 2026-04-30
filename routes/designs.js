@@ -35,7 +35,7 @@ function defaultState() {
     soilLibrary: [],
     stages: [
       {
-        id: 'stage-1', name: 'Final excavation',
+        id: 'stage-1', name: 'Stage 1',
         passiveGroundLevel_m: -4.00,
         activeWaterLevel_m:   -2.00,
         passiveWaterLevel_m:  -4.00,
