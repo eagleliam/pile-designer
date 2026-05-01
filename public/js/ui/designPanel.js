@@ -60,12 +60,17 @@ async function selectDesign(designId) {
 }
 
 function showNewDesignModal() {
-  const name    = prompt('Project Name:');
-  if (!name) return;
-  const ref     = prompt('Reference Number:')  || '';
-  const client  = prompt('Client:')            || '';
-  const designer = prompt('Designer:')         || '';
-  createNewDesign(name, ref, client, designer);
+  // prompt() returns null on Cancel, '' on OK with empty input. Treat null as
+  // an abort at every step; allow '' so users can skip optional fields.
+  const name = prompt('Project Name:');
+  if (name === null || !name.trim()) return;
+  const ref = prompt('Reference Number:');
+  if (ref === null) return;
+  const client = prompt('Client:');
+  if (client === null) return;
+  const designer = prompt('Designer:');
+  if (designer === null) return;
+  createNewDesign(name.trim(), ref, client, designer);
 }
 
 async function createNewDesign(projectName, projectRef, client, createdBy) {
