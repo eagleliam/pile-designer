@@ -65,21 +65,44 @@ function updateSoilField(side, id, field, raw) {
     const v = parseFloat(raw);
     if (!isNaN(v)) layer[field] = v;
   }
-  refreshSoilCoeffs(id);
+  // Type changes flip which params apply — full re-render so the grey-out
+  // classes update and the warning recomputes. Numeric changes just patch the
+  // coefficient + warning rows in place to preserve input focus.
+  if (field === 'type') {
+    renderSoils();
+  } else {
+    refreshSoilCoeffs(id);
+  }
   markDirty(); scheduleAutoSave();
   refreshDiagram();
   triggerRecalc();
 }
 
-// Patch the coefficient read-out for one layer in place — avoids re-rendering
-// the whole card and stealing focus from the input the user is editing.
+// Patch the coefficient read-out + warning banner for one layer in place —
+// avoids re-rendering the whole card and stealing focus from the input the
+// user is editing.
 function refreshSoilCoeffs(layerId) {
   const layer = [...(AppState.activeSoils || []), ...(AppState.passiveSoils || [])]
     .find(s => s.id === layerId);
   if (!layer) return;
   const row = document.querySelector(`.soil-coeffs[data-layer-id="${layerId}"]`);
-  if (!row) return;
-  row.innerHTML = _soilCoeffInner(layer);
+  if (row) row.innerHTML = _soilCoeffInner(layer);
+  const warn = document.querySelector(`.soil-warning[data-layer-id="${layerId}"]`);
+  if (warn) {
+    const content = _soilWarningInner(layer);
+    warn.innerHTML = content;
+    warn.style.display = content ? '' : 'none';
+  }
+}
+
+function _soilWarningInner(s) {
+  if (s.type === 'undrained' && (!s.cu || s.cu <= 0)) {
+    return `⚠ Undrained type with cu = 0 — no shear strength. The wall will not converge. Set cu, or switch to Drained if you want φ'/c' to apply.`;
+  }
+  if (s.type === 'drained' && (!s.phi || s.phi <= 0) && (!s.c_eff || s.c_eff <= 0)) {
+    return `⚠ Drained type with φ' = 0 and c' = 0 — no shear strength. Set φ' (and/or c'), or switch to Undrained if you want cu to apply.`;
+  }
+  return '';
 }
 
 function _soilCoeffInner(s) {
@@ -94,6 +117,25 @@ function _soilCoeffInner(s) {
     ${s.type === 'drained'
       ? `<span class="sc-meta">δa = ${k.delta_a_deg.toFixed(1)}° &middot; δp = ${k.delta_p_deg.toFixed(1)}° &middot; cw/cu = ${WALL_ADHESION_RATIO}</span>`
       : `<span class="sc-meta">undrained &middot; cw/cu = ${WALL_ADHESION_RATIO} (Padfield-Mair)</span>`}`;
+}
+
+// Mirror one side's stratigraphy onto the other. Most retaining walls have the
+// same ground both sides — this saves the user duplicating the inputs.
+function mirrorSoils(fromSide) {
+  const src = (fromSide === 'active' ? AppState.activeSoils : AppState.passiveSoils) || [];
+  if (!src.length) {
+    alert(`No layers on the ${fromSide} side to copy.`);
+    return;
+  }
+  const targetKey = fromSide === 'active' ? 'passiveSoils' : 'activeSoils';
+  const targetLabel = fromSide === 'active' ? 'passive' : 'active';
+  if (AppState[targetKey].length && !confirm(`Replace ${targetLabel}-side stratigraphy with the ${fromSide}-side layers?`)) return;
+  const prefix = fromSide === 'active' ? 'ps-' : 'as-';
+  AppState[targetKey] = src.map(s => ({ ...s, id: prefix + Math.random().toString(36).slice(2, 8) }));
+  renderSoils();
+  markDirty(); scheduleAutoSave();
+  refreshDiagram();
+  triggerRecalc();
 }
 
 function saveSoilToLibrary(side, layerId) {
@@ -135,15 +177,11 @@ function renderSoilSide(side) {
 
   host.innerHTML = arr.map((s, i) => {
     const coeffsRow = `<div class="soil-coeffs" data-layer-id="${s.id}">${_soilCoeffInner(s)}</div>`;
-    // Warn the user if the soil parameters they've entered don't actually drive
-    // the analysis for the selected drained / undrained type.
-    const warnUndrainedNoCu = s.type === 'undrained' && (!s.cu || s.cu <= 0);
-    const warnDrainedNoStrength = s.type === 'drained' && (!s.phi || s.phi <= 0) && (!s.c_eff || s.c_eff <= 0);
-    const warning = warnUndrainedNoCu
-      ? `<div class="soil-warning">⚠ Undrained type with cu = 0 — no shear strength. The wall will not converge. Set cu, or switch to Drained if you want φ'/c' to apply.</div>`
-      : warnDrainedNoStrength
-      ? `<div class="soil-warning">⚠ Drained type with φ' = 0 and c' = 0 — no shear strength. Set φ' (and/or c'), or switch to Undrained if you want cu to apply.</div>`
-      : '';
+    // Always render the warning element (with the correct content for the
+    // current state — empty string if the soil is fine) so refreshSoilCoeffs
+    // can patch it in place when the user fixes the issue.
+    const warnContent = _soilWarningInner(s);
+    const warning = `<div class="soil-warning" data-layer-id="${s.id}" style="${warnContent ? '' : 'display:none'}">${warnContent}</div>`;
     // Grey out the parameters that the chosen type doesn't use.
     const undrainedIrrelevant = s.type === 'undrained' ? ' class="soil-input-disabled"' : '';
     const drainedIrrelevant   = s.type === 'drained'   ? ' class="soil-input-disabled"' : '';

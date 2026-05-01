@@ -136,15 +136,21 @@ function integrateCantileverBM(profile) {
     const dz = profile.z[i] - profile.z[i-1];
     V[i] = V[i-1] + 0.5 * (profile.net[i] + profile.net[i-1]) * dz;
   }
-  // The toe should have V=0 in equilibrium. Apply a corrective point load R at the toe.
-  const R_toe = V[n-1];
-  // Recompute V with toe correction: V*(z) = V(z) for z < toe, V(toe⁺) = V(toe) - R_toe = 0
-  // BMD: M(z) = ∫₀^z V dz, with M(toe) closing to 0
+  // For limit-equilibrium at d_required, V[toe] ≈ 0 naturally. For BMD-at-
+  // d_design (the default CADS/BSC convention), the wall is over-embedded so
+  // passive over-mobilises in the integration, leaving a non-zero residual at
+  // the toe. Distribute that residual linearly along the wall so SF closes to
+  // zero at the toe — represents the implicit R_toe correction smeared along
+  // the pile (the true R is a point load at the toe in Burland-Potts simplified).
+  const R_toe   = V[n-1];
+  const SFclose = V[n-1];
+  for (let i = 0; i < n; i++) V[i] -= SFclose * (profile.z[i] / profile.z[n-1]);
+  // BM from the corrected SF
   for (let i = 1; i < n; i++) {
     const dz = profile.z[i] - profile.z[i-1];
     M[i] = M[i-1] + 0.5 * (V[i] + V[i-1]) * dz;
   }
-  // Close M at toe to 0 by linear correction (small numerical drift)
+  // Close M at toe to 0 (residual from numerical integration)
   const Mclose = M[n-1];
   for (let i = 0; i < n; i++) M[i] -= Mclose * (profile.z[i] / profile.z[n-1]);
   return { SF: V, BM: M, R_toe };

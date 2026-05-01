@@ -224,12 +224,18 @@
           <div class="soils-col">
             <h3 class="sub-heading">Active side (retained)</h3>
             <div id="activeSoilsList"></div>
-            <button class="btn-add" onclick="addSoilLayer('active')">+ Add active layer</button>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+              <button class="btn-add" onclick="addSoilLayer('active')">+ Add active layer</button>
+              <button class="btn-add" onclick="mirrorSoils('passive')" title="Replace active-side stratigraphy with the passive-side layers">⟵ Match active to passive</button>
+            </div>
           </div>
           <div class="soils-col">
             <h3 class="sub-heading">Passive side (excavated)</h3>
             <div id="passiveSoilsList"></div>
-            <button class="btn-add" onclick="addSoilLayer('passive')">+ Add passive layer</button>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+              <button class="btn-add" onclick="addSoilLayer('passive')">+ Add passive layer</button>
+              <button class="btn-add" onclick="mirrorSoils('active')" title="Replace passive-side stratigraphy with the active-side layers">Match passive to active ⟶</button>
+            </div>
           </div>
         </div>
       </div>
