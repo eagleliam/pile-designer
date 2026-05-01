@@ -21,8 +21,7 @@ function defaultState() {
     },
     geometry: {
       activeGroundLevel_m: 0.00,
-      wallTopLevel_m: 0.50,
-      trialEmbedment_m: 4.00
+      wallTopLevel_m: 0.50
     },
     activeSoils: [
       { id: 'as-1', name: 'Made Ground',     topLevel_m:  0.00, gamma: 18, gamma_sat: 19, phi: 28, c_eff: 0,  cu: 0,  E_MPa: 10, type: 'drained',   delta_active: 0.667, delta_passive: 0.500 },

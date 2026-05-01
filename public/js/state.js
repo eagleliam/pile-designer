@@ -22,8 +22,8 @@ window.AppState = {
     embedmentSafetyFactor: 1.20,
     bmdAtDesignLength: true     // CADS/BSC convention; false = BMD at d_required (equilibrium)
   },
-  // Shared geometry — wall top + active GL + trial embedment apply across stages.
-  geometry: { activeGroundLevel_m: 0.00, wallTopLevel_m: 0.50, trialEmbedment_m: 4.00 },
+  // Shared geometry — pile top + active GL apply across stages.
+  geometry: { activeGroundLevel_m: 0.00, wallTopLevel_m: 0.50 },
   // Shared stratigraphy
   activeSoils:  [],
   passiveSoils: [],
@@ -91,7 +91,6 @@ function collectStateFromForm() {
   const g = AppState.geometry;
   g.activeGroundLevel_m = numVal('geomActiveGround');
   g.wallTopLevel_m      = numVal('geomWallTop');
-  g.trialEmbedment_m    = numVal('geomEmbedment');
 
   // Active stage's per-stage data (geometry + water + seepage)
   const stage = activeStage();
@@ -102,9 +101,10 @@ function collectStateFromForm() {
     stage.seepage              = document.getElementById('geomSeepage')?.value || 'hydrostatic';
   }
 
-  // Wall is shared
+  // Wall is shared. Pile length is now a direct user input.
   AppState.wall.steelGrade  = document.getElementById('wallSteelGrade')?.value || 'S355GP';
-  AppState.wall.length_m    = computeWallLength();
+  const lenInput = numVal('wallLength');
+  if (!isNaN(lenInput) && lenInput > 0) AppState.wall.length_m = lenInput;
   AppState.wall.type        = deriveWallTypeFromProps(stage?.props || []);
 
   // Design control
@@ -149,9 +149,8 @@ function collectProjectMeta() {
 function populateFormFromState(state) {
   // Shared geometry
   Object.assign(AppState.geometry, state.geometry || {});
-  setVal('geomActiveGround',  AppState.geometry.activeGroundLevel_m);
-  setVal('geomWallTop',       AppState.geometry.wallTopLevel_m);
-  setVal('geomEmbedment',     AppState.geometry.trialEmbedment_m);
+  setVal('geomActiveGround', AppState.geometry.activeGroundLevel_m);
+  setVal('geomWallTop',      AppState.geometry.wallTopLevel_m);
 
   // Stages — back-compat: legacy designs may have no stages but a top-level
   // surcharges/props/passive-ground. Wrap them in a single stage on load.
@@ -177,16 +176,14 @@ function populateFormFromState(state) {
   Object.assign(AppState.wall, state.wall || {});
   setVal('wallType',       AppState.wall.type);
   setVal('wallSteelGrade', AppState.wall.steelGrade);
-  // Back-compat: legacy designs may have wall.length_m but no trialEmbedment_m.
-  // Derive embedment from the saved length so the input field is non-zero.
-  if (!AppState.geometry.trialEmbedment_m && AppState.wall.length_m > 0) {
-    const derived = AppState.wall.length_m - (AppState.geometry.wallTopLevel_m - AppState.geometry.passiveGroundLevel_m);
-    if (derived > 0) {
-      AppState.geometry.trialEmbedment_m = derived;
-      setVal('geomEmbedment', derived);
-    }
+  // Back-compat: legacy designs may have a trialEmbedment_m field instead of an
+  // explicit pile length. Reconstruct length from (wallTop − deepest dredge) + emb.
+  if ((!AppState.wall.length_m || AppState.wall.length_m <= 0) && state.geometry?.trialEmbedment_m) {
+    const deepest = Math.min(...(AppState.stages || [{passiveGroundLevel_m:-4}]).map(s => s.passiveGroundLevel_m));
+    AppState.wall.length_m = (AppState.geometry.wallTopLevel_m - deepest) + state.geometry.trialEmbedment_m;
   }
-  recomputeWallLength();
+  setVal('wallLength', (AppState.wall.length_m || 0).toFixed(2));
+  recomputePileToe();
   const lbl = document.getElementById('wallSectionLabel');
   if (lbl) lbl.textContent = (Catalogue.byId[AppState.wall.sectionId]?.designation) || AppState.wall.sectionId || '—';
 
@@ -265,6 +262,7 @@ function populateActiveStageInputs() {
   setVal('geomActiveWater',   s.activeWaterLevel_m);
   setVal('geomPassiveWater',  s.passiveWaterLevel_m);
   setVal('geomSeepage',       s.seepage || 'hydrostatic');
+  recomputePileToe();
 }
 
 function setVal(id, v)  { const el = document.getElementById(id);  if (el) el.value = v ?? ''; }
@@ -277,33 +275,15 @@ function activeStage() {
   return AppState.stages.find(s => s.id === AppState.activeStageId) || AppState.stages[0];
 }
 
-function deepestPassiveGround() {
-  // The wall must be embedded below the worst-case (deepest) dredge across all
-  // stages. For the ACTIVE stage we read the live form input (not the stored
-  // stage value) so the wall length stays accurate while the user is typing —
-  // otherwise we'd be 250 ms behind on the debounced auto-save.
-  const live = numVal('geomPassiveGround');
-  const stages = AppState.stages || [];
-  if (!stages.length) return -4;     // pre-init fallback
-  return Math.min(...stages.map(s =>
-    (s.id === AppState.activeStageId && !isNaN(live)) ? live : s.passiveGroundLevel_m
-  ));
-}
-
-// Wall length sized off the deepest dredge across all stages so the same pile
-// is long enough for every stage.
-function computeWallLength() {
-  const top   = numVal('geomWallTop');
-  const emb   = numVal('geomEmbedment');
-  if ([top, emb].some(v => isNaN(v))) return AppState.wall.length_m || 0;
-  const deepest = deepestPassiveGround();
-  return (top - deepest) + emb;
-}
-
-function recomputeWallLength() {
-  const L = computeWallLength();
-  AppState.wall.length_m = L;
-  setVal('wallLength', L.toFixed(2));
+// Pile toe is the computed quantity now: toe = top − length.
+// The user inputs pile top + pile length directly.
+function recomputePileToe() {
+  const top = numVal('geomWallTop');
+  const len = numVal('wallLength');
+  if (!isNaN(top) && !isNaN(len)) {
+    AppState.wall.length_m = len;
+    setVal('pileToe', (top - len).toFixed(2));
+  }
 }
 
 // Build the snapshot of state representing a single stage as it should look to
@@ -317,7 +297,6 @@ function snapshotForStage(stage) {
       activeGroundLevel_m:  g.activeGroundLevel_m,
       passiveGroundLevel_m: stage.passiveGroundLevel_m,
       wallTopLevel_m:       g.wallTopLevel_m,
-      trialEmbedment_m:     g.trialEmbedment_m,
       activeWaterLevel_m:   stage.activeWaterLevel_m,
       passiveWaterLevel_m:  stage.passiveWaterLevel_m,
       seepage:              stage.seepage || 'hydrostatic'
