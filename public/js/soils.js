@@ -135,6 +135,18 @@ function renderSoilSide(side) {
 
   host.innerHTML = arr.map((s, i) => {
     const coeffsRow = `<div class="soil-coeffs" data-layer-id="${s.id}">${_soilCoeffInner(s)}</div>`;
+    // Warn the user if the soil parameters they've entered don't actually drive
+    // the analysis for the selected drained / undrained type.
+    const warnUndrainedNoCu = s.type === 'undrained' && (!s.cu || s.cu <= 0);
+    const warnDrainedNoStrength = s.type === 'drained' && (!s.phi || s.phi <= 0) && (!s.c_eff || s.c_eff <= 0);
+    const warning = warnUndrainedNoCu
+      ? `<div class="soil-warning">⚠ Undrained type with cu = 0 — no shear strength. The wall will not converge. Set cu, or switch to Drained if you want φ'/c' to apply.</div>`
+      : warnDrainedNoStrength
+      ? `<div class="soil-warning">⚠ Drained type with φ' = 0 and c' = 0 — no shear strength. Set φ' (and/or c'), or switch to Undrained if you want cu to apply.</div>`
+      : '';
+    // Grey out the parameters that the chosen type doesn't use.
+    const undrainedIrrelevant = s.type === 'undrained' ? ' class="soil-input-disabled"' : '';
+    const drainedIrrelevant   = s.type === 'drained'   ? ' class="soil-input-disabled"' : '';
     return `
     <div class="layer-card">
       <div class="layer-card-header">
@@ -143,7 +155,7 @@ function renderSoilSide(side) {
           <button class="btn-edit-rev" onclick="saveSoilToLibrary('${side}','${s.id}')" title="Save these parameters as a named soil in the library">+ Save to library</button>
           <button class="btn-remove" onclick="removeSoilLayer('${side}','${s.id}')">Remove</button>
         </div>
-      </div>${coeffsRow}
+      </div>${coeffsRow}${warning}
       <div class="form-grid">
         <div class="form-group"><label>Name</label><input value="${escAttr(s.name)}" oninput="updateSoilField('${side}','${s.id}','name',this.value)"></div>
         <div class="form-group"><label>Apply preset</label>
@@ -161,12 +173,12 @@ function renderSoilSide(side) {
         </div>
         <div class="form-group"><label>γ (kN/m³)</label><input type="number" step="0.1" value="${s.gamma}" oninput="updateSoilField('${side}','${s.id}','gamma',this.value)"></div>
         <div class="form-group"><label>γ_sat (kN/m³)</label><input type="number" step="0.1" value="${s.gamma_sat}" oninput="updateSoilField('${side}','${s.id}','gamma_sat',this.value)"></div>
-        <div class="form-group"><label>φ' (°)</label><input type="number" step="0.5" value="${s.phi}" oninput="updateSoilField('${side}','${s.id}','phi',this.value)"></div>
-        <div class="form-group"><label>c' (kPa)</label><input type="number" step="0.5" value="${s.c_eff}" oninput="updateSoilField('${side}','${s.id}','c_eff',this.value)"></div>
-        <div class="form-group"><label>cu (kPa)</label><input type="number" step="1"   value="${s.cu}"    oninput="updateSoilField('${side}','${s.id}','cu',this.value)"></div>
+        <div class="form-group"${undrainedIrrelevant}><label>φ' (°) <span class="param-tag">drained</span></label><input type="number" step="0.5" value="${s.phi}" oninput="updateSoilField('${side}','${s.id}','phi',this.value)"></div>
+        <div class="form-group"${undrainedIrrelevant}><label>c' (kPa) <span class="param-tag">drained</span></label><input type="number" step="0.5" value="${s.c_eff}" oninput="updateSoilField('${side}','${s.id}','c_eff',this.value)"></div>
+        <div class="form-group"${drainedIrrelevant}><label>cu (kPa) <span class="param-tag">undrained</span></label><input type="number" step="1"   value="${s.cu}"    oninput="updateSoilField('${side}','${s.id}','cu',this.value)"></div>
         <div class="form-group"><label>E (MPa)</label><input type="number" step="1"   value="${s.E_MPa ?? 30}" oninput="updateSoilField('${side}','${s.id}','E_MPa',this.value)"></div>
-        <div class="form-group"><label>δ_a / φ'</label><input type="number" step="0.05" value="${s.delta_active}"  oninput="updateSoilField('${side}','${s.id}','delta_active',this.value)"></div>
-        <div class="form-group"><label>δ_p / φ'</label><input type="number" step="0.05" value="${s.delta_passive}" oninput="updateSoilField('${side}','${s.id}','delta_passive',this.value)"></div>
+        <div class="form-group"${undrainedIrrelevant}><label>δ_a / φ' <span class="param-tag">drained</span></label><input type="number" step="0.05" value="${s.delta_active}"  oninput="updateSoilField('${side}','${s.id}','delta_active',this.value)"></div>
+        <div class="form-group"${undrainedIrrelevant}><label>δ_p / φ' <span class="param-tag">drained</span></label><input type="number" step="0.05" value="${s.delta_passive}" oninput="updateSoilField('${side}','${s.id}','delta_passive',this.value)"></div>
       </div>
     </div>`;
   }).join('');

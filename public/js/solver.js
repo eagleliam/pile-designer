@@ -60,7 +60,11 @@ function solveCantilever(state, combo) {
     }
     prevMoment = M; prevToe = toeLevel;
   }
-  if (d_required === null) d_required = maxD;     // didn't converge — wall would need >25 m embedment
+  let convergenceFailed = false;
+  if (d_required === null) {
+    d_required = maxD;
+    convergenceFailed = true;
+  }
 
   const embFactor   = state.designControl.embedmentSafetyFactor || 1.20;
   const d_design    = d_required * embFactor;
@@ -98,7 +102,10 @@ function solveCantilever(state, combo) {
     V_max_kN_per_m:     Math.max(...SF.map(Math.abs)),
     deflection_max_mm:  Math.max(...defl.map(d => Math.abs(d))) * 1000,
     R_toe_kN_per_m:     R_toe,
-    status:             userEmbedment >= d_design ? 'OK' : 'EMBEDMENT INSUFFICIENT'
+    status:             convergenceFailed
+                          ? 'NON-CONVERGENT'
+                          : (userEmbedment >= d_design ? 'OK' : 'EMBEDMENT INSUFFICIENT'),
+    convergenceFailed
   };
 }
 
@@ -172,7 +179,8 @@ function solveSingleProp(state, combo) {
     }
     prevM = M; prevToe = toeLevel;
   }
-  if (d_required === null) d_required = 25;
+  let convergenceFailed = false;
+  if (d_required === null) { d_required = 25; convergenceFailed = true; }
 
   const embFactor   = state.designControl.embedmentSafetyFactor || 1.20;
   const d_design    = d_required * embFactor;
@@ -216,7 +224,10 @@ function solveSingleProp(state, combo) {
     M_max_kNm_per_m:    Math.max(...BM.map(Math.abs)),
     V_max_kN_per_m:     Math.max(...SF.map(Math.abs)),
     deflection_max_mm:  Math.max(...defl.map(d => Math.abs(d))) * 1000,
-    status:             userEmbedment >= d_design ? 'OK' : 'EMBEDMENT INSUFFICIENT'
+    status:             convergenceFailed
+                          ? 'NON-CONVERGENT'
+                          : (userEmbedment >= d_design ? 'OK' : 'EMBEDMENT INSUFFICIENT'),
+    convergenceFailed
   };
 }
 

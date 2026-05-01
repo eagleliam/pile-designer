@@ -58,6 +58,24 @@ function renderResultsPanel(allStageResults, stab) {
   const V_Rd   = shearResistance_kN_per_m(AppState.wall.sectionId, grade, f.gM0);
   const html   = [];
 
+  // Warn about any stage where the solver failed to converge — typically caused
+  // by misconfigured soils (zero shear strength) rather than a numerical issue.
+  const nonConvergent = allStageResults.filter(sr => sr.results[combo]?.convergenceFailed);
+  if (nonConvergent.length) {
+    html.push(`<div class="info-box" style="background:#fef3e6;border-left-color:var(--orange);color:#7a3f10">
+      <strong>⚠ Solver did not converge for ${nonConvergent.length} stage(s):</strong>
+      ${nonConvergent.map(sr => escHtml(sr.stageName)).join(', ')}.
+      The wall cannot reach moment equilibrium with the chosen soil parameters — typically because a soil layer has no effective shear strength.
+      Check that:
+      <ul style="margin:6px 0 0 22px;padding:0">
+        <li>Undrained layers have <strong>cu &gt; 0</strong></li>
+        <li>Drained layers have <strong>φ' &gt; 0</strong> or c' &gt; 0</li>
+        <li>Pile length is sufficient for the worst stage's dredge level</li>
+      </ul>
+      The numbers below are computed at the 25 m embedment cap and are <strong>not engineering values</strong>.
+    </div>`);
+  }
+
   html.push(`<div class="info-box">Sheet pile: <strong>${sec_pl?.designation || '—'}</strong> &middot; ${grade} &middot; W_el = ${(sec_pl?.W_el_cm3_per_m ?? 0).toFixed(0)} cm³/m &middot; M_Rd = <strong>${M_Rd.toFixed(0)} kNm/m</strong> &middot; V_Rd = ${V_Rd.toFixed(0)} kN/m &middot; Showing combination: <strong>${combo}</strong></div>`);
 
   // ── Envelope across stages ──────────────────────────────────────────────

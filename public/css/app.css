@@ -773,3 +773,33 @@ tr:nth-child(even) td { background:var(--surface2); }
 .section-collapsible .section-header { cursor: pointer; user-select: none; transition: background 0.1s; }
 .section-collapsible .section-header:hover { background: var(--red-glow); }
 .collapse-caret { display: inline-block; width: 12px; font-size: 10px; color: var(--red); transform: translateY(-1px); margin-right: 4px; }
+
+/* ─── Soil card: greyed-out parameters that don't apply for the chosen type ─── */
+.soil-input-disabled            { opacity: 0.45; }
+.soil-input-disabled input       { background: var(--bg) !important; }
+.soil-input-disabled .param-tag  { opacity: 1; }
+
+.param-tag {
+  display: inline-block;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 1px 4px;
+  border-radius: 2px;
+  background: var(--surface2);
+  color: var(--text-dim);
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.soil-warning {
+  font-family: var(--mono);
+  font-size: 11px;
+  background: #fef3e6;
+  color: #7a3f10;
+  border: 1px solid #f3c389;
+  border-left: 3px solid var(--orange);
+  border-radius: 3px;
+  padding: 6px 10px;
+  margin: 0 0 10px 0;
+}
