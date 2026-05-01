@@ -106,6 +106,7 @@ function collectStateFromForm() {
   const lenInput = numVal('wallLength');
   if (!isNaN(lenInput) && lenInput > 0) AppState.wall.length_m = lenInput;
   AppState.wall.type        = deriveWallTypeFromProps(stage?.props || []);
+  setVal('wallType', AppState.wall.type);   // keep the read-only display in sync
 
   // Design control
   AppState.designControl.mode              = document.getElementById('dcMode')?.value || 'EC7';

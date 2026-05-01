@@ -325,6 +325,8 @@ function addProp() {
   const last = arr[arr.length - 1];
   const lvl  = last ? last.level_m - 2.0 : (AppState.geometry.wallTopLevel_m - 0.5);
   arr.push({ id: _newId('pr'), level_m: lvl, stiffness: 'rigid', type: 'permanent' });
+  AppState.wall.type = deriveWallTypeFromProps(arr);
+  setVal('wallType', AppState.wall.type);
   renderProps();
   markDirty(); scheduleAutoSave();
   refreshDiagram();
@@ -335,6 +337,8 @@ function removeProp(id) {
   const arr = _activeProps();
   const idx = arr.findIndex(p => p.id === id);
   if (idx >= 0) arr.splice(idx, 1);
+  AppState.wall.type = deriveWallTypeFromProps(arr);
+  setVal('wallType', AppState.wall.type);
   renderProps();
   markDirty(); scheduleAutoSave();
   refreshDiagram();

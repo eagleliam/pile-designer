@@ -320,31 +320,48 @@ function solveMultiProp(state, combo) {
     return envelopePeak * (above - below);
   });
 
-  // 5. Integrate the LE pressure profile with prop reactions to get SF and BM.
-  // Walk top-to-bottom, accumulating ∫net dz, and at each prop level subtract the
-  // prop's tributary force from the running shear.
+  // 5. Integrate SF + BM. Use envelope load above dredge (matches the source of
+  // the prop forces) and LE pressure below dredge (captures the embedment
+  // passive resistance). With this mixed loading + envelope-tributary props,
+  // ΣH balances above dredge so SF closes to zero at the dredge level after all
+  // props apply, then accumulates again below dredge with the LE pressure.
+  // A small linear correction zeroes out residual ΣH at the toe (from
+  // envelope/LE methodology mismatch + over-embedment over-mobilising passive).
   const n  = profile.z.length;
   const SF = new Array(n).fill(0);
   const BM = new Array(n).fill(0);
   const applied = new Array(propLevels.length).fill(false);
 
+  function loadAtIndex(i) {
+    const lvl = profile.levels[i];
+    if (lvl <= aGround && lvl >= pGround) return envelopePeak;   // above dredge: envelope
+    if (lvl < pGround) return profile.net[i];                     // below dredge: LE pressure
+    return 0;                                                      // above active GL: free
+  }
+
   for (let i = 1; i < n; i++) {
-    const dz  = profile.z[i] - profile.z[i-1];
-    const lvl = wallTop - profile.z[i];
-    SF[i] = SF[i-1] + 0.5 * (profile.net[i] + profile.net[i-1]) * dz;
+    const dz       = profile.z[i] - profile.z[i-1];
+    const lvl_bot  = wallTop - profile.z[i];
+    SF[i] = SF[i-1] + 0.5 * (loadAtIndex(i) + loadAtIndex(i-1)) * dz;
     for (let j = 0; j < propLevels.length; j++) {
-      if (!applied[j] && lvl <= propLevels[j]) {
+      if (!applied[j] && lvl_bot <= propLevels[j]) {
         SF[i] -= propForces[j];
         applied[j] = true;
       }
     }
   }
+  // Close SF at toe (linear correction along wall). Magnitude of correction is
+  // small if the FES sub-problem found a sensible d_required; gets larger when
+  // the wall is over-embedded (BMD-at-d_design mode) since LE passive is over-
+  // mobilised in the integration.
+  const SFclose = SF[n-1];
+  for (let i = 0; i < n; i++) SF[i] -= SFclose * (profile.z[i] / profile.z[n-1]);
+
   for (let i = 1; i < n; i++) {
     const dz = profile.z[i] - profile.z[i-1];
     BM[i] = BM[i-1] + 0.5 * (SF[i] + SF[i-1]) * dz;
   }
-  // Linear close-to-zero at toe (corrects for residual ΣH from envelope-vs-LE mismatch
-  // and the LE-at-d_design over-mobilisation of passive)
+  // Close BM at toe to 0 (residual from numerical integration)
   const Mclose = BM[n-1];
   for (let i = 0; i < n; i++) BM[i] -= Mclose * (profile.z[i] / profile.z[n-1]);
 
