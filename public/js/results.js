@@ -5,10 +5,17 @@ function runAllDesigns(opts = {}) {
   // Sync the form back into AppState for the active stage
   collectStateFromForm();
 
-  // Run every stage and store all results on AppState. The active stage drives the diagram.
+  // Run every stage and store all results on AppState. Wrap in try/catch so one
+  // bad stage doesn't poison the whole results pipeline — bad stage shows an
+  // error in the table, others render normally.
   const allStageResults = AppState.stages.map(stage => {
-    const stageState = snapshotForStage(stage);
-    return { stageId: stage.id, stageName: stage.name, results: runDesign(stageState) };
+    try {
+      const stageState = snapshotForStage(stage);
+      return { stageId: stage.id, stageName: stage.name, results: runDesign(stageState) };
+    } catch (e) {
+      console.error(`Stage "${stage.name}" failed:`, e);
+      return { stageId: stage.id, stageName: stage.name, results: {}, error: e.message };
+    }
   });
   AppState.allStageResults = allStageResults;
   // Active stage results = the canonical lastResults used by the diagram + view overlays

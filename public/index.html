@@ -360,6 +360,9 @@
     project: { name:'', ref:'', client:'', designer:'', date:'' }
   });
   if (typeof renderPilePropertiesPanel === 'function') renderPilePropertiesPanel();
+  // Seed lastResults so view-switching works on a freshly loaded design without
+  // requiring the user to edit anything first. Bishop is gated.
+  if (typeof runAllDesigns === 'function') runAllDesigns({ skipStability: true });
   refreshDiagram();
 })();
 </script>

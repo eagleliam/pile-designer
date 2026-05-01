@@ -15,6 +15,13 @@ const PAD_LR  = 40;
 function setActiveView(view) {
   AppState.view = view;
   document.querySelectorAll('.view-tab').forEach(t => t.classList.toggle('active', t.dataset.view === view));
+  // If we haven't computed any results yet, do it now so the overlay actually
+  // renders. Otherwise clicking BMD/SFD/etc on a freshly-loaded design with no
+  // edits would silently do nothing because lastResults is null.
+  if (!AppState.lastResults && typeof runAllDesigns === 'function') {
+    runAllDesigns({ skipStability: view !== 'rotational' });
+    return;   // runAllDesigns calls refreshDiagram itself
+  }
   refreshDiagram();
 }
 
