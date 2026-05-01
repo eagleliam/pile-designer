@@ -107,7 +107,18 @@ function renderSoilSide(side) {
     .map(p => `<option value="${p.id}">${escHtml(p.name)}${p.builtin ? '' : ' ★'}</option>`)
     .join('');
 
-  host.innerHTML = arr.map((s, i) => `
+  host.innerHTML = arr.map((s, i) => {
+    const k = earthPressureCoefficients(s);
+    const coeffsRow = k ? `
+      <div class="soil-coeffs">
+        <span class="sc-pair"><strong>Ka</strong> = ${k.Ka.toFixed(3)}</span>
+        <span class="sc-pair"><strong>Kac</strong> = ${k.Kac.toFixed(3)}</span>
+        <span class="sc-sep">|</span>
+        <span class="sc-pair"><strong>Kp</strong> = ${k.Kp.toFixed(3)}</span>
+        <span class="sc-pair"><strong>Kpc</strong> = ${k.Kpc.toFixed(3)}</span>
+        ${s.type === 'drained' ? `<span class="sc-meta">δa = ${k.delta_a_deg.toFixed(1)}° &middot; δp = ${k.delta_p_deg.toFixed(1)}°</span>` : `<span class="sc-meta">undrained — coefficients applied to total stress</span>`}
+      </div>` : '';
+    return `
     <div class="layer-card">
       <div class="layer-card-header">
         <h3>Layer ${i+1}: ${escHtml(s.name)}</h3>
@@ -115,7 +126,7 @@ function renderSoilSide(side) {
           <button class="btn-edit-rev" onclick="saveSoilToLibrary('${side}','${s.id}')" title="Save these parameters as a named soil in the library">+ Save to library</button>
           <button class="btn-remove" onclick="removeSoilLayer('${side}','${s.id}')">Remove</button>
         </div>
-      </div>
+      </div>${coeffsRow}
       <div class="form-grid">
         <div class="form-group"><label>Name</label><input value="${escAttr(s.name)}" oninput="updateSoilField('${side}','${s.id}','name',this.value)"></div>
         <div class="form-group"><label>Apply preset</label>
@@ -140,8 +151,8 @@ function renderSoilSide(side) {
         <div class="form-group"><label>δ_a / φ'</label><input type="number" step="0.05" value="${s.delta_active}"  oninput="updateSoilField('${side}','${s.id}','delta_active',this.value)"></div>
         <div class="form-group"><label>δ_p / φ'</label><input type="number" step="0.05" value="${s.delta_passive}" oninput="updateSoilField('${side}','${s.id}','delta_passive',this.value)"></div>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 // ─── Soil Library section ─────────────────────────────────────────────────────

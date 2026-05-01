@@ -747,3 +747,24 @@ tr:nth-child(even) td { background:var(--surface2); }
   border-left:  3px solid var(--red) !important;
   background:   var(--red-soft);
 }
+
+/* ─── Soil layer earth-pressure coefficients read-out ─── */
+.soil-coeffs {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--red);
+  border-radius: 3px;
+  padding: 6px 10px;
+  margin: 0 0 12px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+.soil-coeffs .sc-pair  { color: var(--red-deep); }
+.soil-coeffs .sc-pair strong { color: var(--red); margin-right: 2px; }
+.soil-coeffs .sc-sep   { color: var(--border-strong); }
+.soil-coeffs .sc-meta  { color: var(--text-dim); margin-left: auto; font-size: 10px; }

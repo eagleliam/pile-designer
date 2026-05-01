@@ -155,13 +155,13 @@
       <div class="section-header"><h2>Wall Geometry &amp; Water</h2><span class="section-tag">Input</span></div>
       <div class="section-body">
         <div class="form-grid">
-          <div class="form-group"><label>Active GL (m)</label><input id="geomActiveGround"  type="number" step="0.1" oninput="markDirty();scheduleAutoSave();refreshDiagram();triggerRecalc()"></div>
-          <div class="form-group"><label>Passive GL (m)</label><input id="geomPassiveGround" type="number" step="0.1" oninput="recomputeWallLength();markDirty();scheduleAutoSave();refreshDiagram();triggerRecalc()"></div>
-          <div class="form-group"><label>Wall top (m)</label><input id="geomWallTop"        type="number" step="0.1" oninput="recomputeWallLength();markDirty();scheduleAutoSave();refreshDiagram();triggerRecalc()"></div>
-          <div class="form-group"><label>Trial embedment below dredge (m)</label><input id="geomEmbedment" type="number" step="0.1" oninput="recomputeWallLength();markDirty();scheduleAutoSave();refreshDiagram();triggerRecalc()"></div>
-          <div class="form-group"><label>Active WL (m)</label><input id="geomActiveWater"   type="number" step="0.1" oninput="markDirty();scheduleAutoSave();refreshDiagram();triggerRecalc()"></div>
-          <div class="form-group"><label>Passive WL (m)</label><input id="geomPassiveWater" type="number" step="0.1" oninput="markDirty();scheduleAutoSave();refreshDiagram();triggerRecalc()"></div>
-          <div class="form-group"><label>Seepage</label>
+          <div class="form-group"><label>Active GL (m) — shared</label><input id="geomActiveGround"  type="number" step="0.1" oninput="markDirty();scheduleAutoSave();refreshDiagram();triggerRecalc()"></div>
+          <div class="form-group"><label>Passive GL (m) — per stage</label><input id="geomPassiveGround" type="number" step="0.1" oninput="recomputeWallLength();markDirty();scheduleAutoSave();refreshDiagram();triggerRecalc()"></div>
+          <div class="form-group"><label>Wall top (m) — shared</label><input id="geomWallTop"        type="number" step="0.1" oninput="recomputeWallLength();markDirty();scheduleAutoSave();refreshDiagram();triggerRecalc()"></div>
+          <div class="form-group"><label>Trial embedment below deepest dredge (m)</label><input id="geomEmbedment" type="number" step="0.1" title="Pile depth measured below the worst-case (deepest) dredge level across all stages. Wall length = (wall top − deepest dredge) + this value." oninput="recomputeWallLength();markDirty();scheduleAutoSave();refreshDiagram();triggerRecalc()"></div>
+          <div class="form-group"><label>Active WL (m) — per stage</label><input id="geomActiveWater"   type="number" step="0.1" oninput="markDirty();scheduleAutoSave();refreshDiagram();triggerRecalc()"></div>
+          <div class="form-group"><label>Passive WL (m) — per stage</label><input id="geomPassiveWater" type="number" step="0.1" oninput="markDirty();scheduleAutoSave();refreshDiagram();triggerRecalc()"></div>
+          <div class="form-group"><label>Seepage — per stage</label>
             <select id="geomSeepage" onchange="markDirty();scheduleAutoSave();triggerRecalc()">
               <option value="hydrostatic">Hydrostatic both sides</option>
               <option value="steady">Steady-state seepage</option>

@@ -23,6 +23,29 @@ function coulombKa(phi_deg, delta_deg) {
   return num / den;
 }
 
+// Earth pressure + cohesion coefficients for a soil layer, returned as a single
+// object suitable for read-only display on the soil card.
+//   Drained:  Ka, Kp via Coulomb;  Kac = 2·√Ka,  Kpc = 2·√Kp  (cohesion factors)
+//   Undrained: Ka = Kp = 1, Kac = Kpc = 2 (matches σh = σv ± 2cu form)
+function earthPressureCoefficients(layer) {
+  if (!layer) return null;
+  if (layer.type === 'undrained') {
+    return { Ka: 1, Kp: 1, Kac: 2, Kpc: 2, delta_a_deg: 0, delta_p_deg: 0 };
+  }
+  const phi = layer.phi || 0;
+  const delta_a = phi * (layer.delta_active  ?? 0.667);
+  const delta_p = phi * (layer.delta_passive ?? 0.5);
+  const Ka = coulombKa(phi, delta_a);
+  const Kp = coulombKp(phi, delta_p);
+  return {
+    Ka, Kp,
+    Kac: 2 * Math.sqrt(Ka),
+    Kpc: 2 * Math.sqrt(Kp),
+    delta_a_deg: delta_a,
+    delta_p_deg: delta_p
+  };
+}
+
 function coulombKp(phi_deg, delta_deg) {
   if (phi_deg <= 0) return 1;
   const phi = phi_deg * Math.PI / 180;

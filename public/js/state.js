@@ -274,8 +274,16 @@ function activeStage() {
 }
 
 function deepestPassiveGround() {
-  // The wall must be embedded below the worst-case (deepest) dredge across all stages.
-  return Math.min(...AppState.stages.map(s => s.passiveGroundLevel_m));
+  // The wall must be embedded below the worst-case (deepest) dredge across all
+  // stages. For the ACTIVE stage we read the live form input (not the stored
+  // stage value) so the wall length stays accurate while the user is typing —
+  // otherwise we'd be 250 ms behind on the debounced auto-save.
+  const live = numVal('geomPassiveGround');
+  const stages = AppState.stages || [];
+  if (!stages.length) return -4;     // pre-init fallback
+  return Math.min(...stages.map(s =>
+    (s.id === AppState.activeStageId && !isNaN(live)) ? live : s.passiveGroundLevel_m
+  ));
 }
 
 // Wall length sized off the deepest dredge across all stages so the same pile
