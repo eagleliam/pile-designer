@@ -278,6 +278,11 @@
           </div>
           <div class="form-group"><label>Embedment safety factor</label><input id="dcEmbFactor" type="number" step="0.05" value="1.20" oninput="markDirty();scheduleAutoSave();triggerRecalc()"></div>
           <div class="form-group"><label>Global FoS on passive (TRAD only)</label><input id="dcGlobalFoS" type="number" step="0.1" value="2.0" oninput="markDirty();scheduleAutoSave();triggerRecalc()"></div>
+          <div class="form-group"><label>BMD calculation length</label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-family:var(--mono);" title="Checked: BMD computed at d_design (= d_required × safety factor). Matches CADS PWS / BSC convention — gives a conservative M_max. Unchecked: BMD computed at d_required (equilibrium length) — physically meaningful but may under-report M_max for cantilever walls.">
+              <input type="checkbox" id="dcBmdAtDesign" checked onchange="markDirty();scheduleAutoSave();triggerRecalc()"> At d_design (CADS/BSC convention)
+            </label>
+          </div>
         </div>
         <div style="margin-top:14px"><h3 class="sub-heading">Partial factors</h3></div>
         <div id="factorsTable"></div>

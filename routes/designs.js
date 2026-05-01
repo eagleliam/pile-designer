@@ -16,7 +16,8 @@ function defaultState() {
         SLS: { gG: 1.00, gGfav: 1.00, gQ: 1.00, gPhi: 1.00, gCeff: 1.00, gCu: 1.00, gGamma: 1.00, gRe: 1.00, gM0: 1.00 }
       },
       globalFoS_passive: 2.0,
-      embedmentSafetyFactor: 1.20
+      embedmentSafetyFactor: 1.20,
+      bmdAtDesignLength: true
     },
     geometry: {
       activeGroundLevel_m: 0.00,

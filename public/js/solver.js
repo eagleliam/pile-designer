@@ -64,11 +64,15 @@ function solveCantilever(state, combo) {
 
   const embFactor   = state.designControl.embedmentSafetyFactor || 1.20;
   const d_design    = d_required * embFactor;
-  // Build the canonical design profile at d_required (the point where passive is just
-  // fully mobilised). d_design is reported to the user; the BMD/SFD use d_required.
-  const calcLength  = (wallTop - pGround) + d_required;
-  const calcState   = { ...state, wall: { ...state.wall, length_m: calcLength } };
-  const profile     = buildPressureProfile(calcState, combo);
+  // BMD calc length: by default use d_design (BSC / CADS convention — gives a
+  // conservative M_max with the linear close-to-zero correction). User can
+  // switch to d_required for the equilibrium answer (smaller M_max, no
+  // over-embedment artefact).
+  const useDesignLen = state.designControl.bmdAtDesignLength !== false;
+  const d_calc       = useDesignLen ? d_design : d_required;
+  const calcLength   = (wallTop - pGround) + d_calc;
+  const calcState    = { ...state, wall: { ...state.wall, length_m: calcLength } };
+  const profile      = buildPressureProfile(calcState, combo);
 
   const { SF, BM, R_toe } = integrateCantileverBM(profile);
   const EI   = flexuralStiffness_kNm2_per_m(state.wall.sectionId);
@@ -172,11 +176,14 @@ function solveSingleProp(state, combo) {
 
   const embFactor   = state.designControl.embedmentSafetyFactor || 1.20;
   const d_design    = d_required * embFactor;
-  // BMD/SFD/F_prop computed at d_required (where passive is mobilised to balance the
-  // active about the prop). d_design is reported as the recommended pile length.
-  const calcLength  = (wallTop - pGround) + d_required;
-  const calcState   = { ...state, wall: { ...state.wall, length_m: calcLength } };
-  const profile     = buildPressureProfile(calcState, combo);
+  // Same toggle as the cantilever path. For tied walls the choice matters
+  // less because M_max is dominated by the propped span (above the embedment),
+  // but staying consistent with the cantilever convention.
+  const useDesignLen = state.designControl.bmdAtDesignLength !== false;
+  const d_calc       = useDesignLen ? d_design : d_required;
+  const calcLength   = (wallTop - pGround) + d_calc;
+  const calcState    = { ...state, wall: { ...state.wall, length_m: calcLength } };
+  const profile      = buildPressureProfile(calcState, combo);
 
   // Prop reaction = ΣH at the design embedment (positive = wall pushed toward passive,
   // taken by the prop pulling back).

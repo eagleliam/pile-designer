@@ -19,7 +19,8 @@ window.AppState = {
       SLS: { gG: 1.00, gGfav: 1.00, gQ: 1.00, gPhi: 1.00, gCeff: 1.00, gCu: 1.00, gGamma: 1.00, gRe: 1.00, gM0: 1.00 }
     },
     globalFoS_passive: 2.0,
-    embedmentSafetyFactor: 1.20
+    embedmentSafetyFactor: 1.20,
+    bmdAtDesignLength: true     // CADS/BSC convention; false = BMD at d_required (equilibrium)
   },
   // Shared geometry — wall top + active GL + trial embedment apply across stages.
   geometry: { activeGroundLevel_m: 0.00, wallTopLevel_m: 0.50, trialEmbedment_m: 4.00 },
@@ -111,6 +112,7 @@ function collectStateFromForm() {
   AppState.designControl.activeCombination = document.getElementById('dcCombo')?.value || 'C1';
   AppState.designControl.globalFoS_passive  = numVal('dcGlobalFoS');
   AppState.designControl.embedmentSafetyFactor = numVal('dcEmbFactor');
+  AppState.designControl.bmdAtDesignLength = !!document.getElementById('dcBmdAtDesign')?.checked;
   // factor inputs are pulled by factors.js
   if (typeof flushFactorsToState === 'function') flushFactorsToState();
 
@@ -197,6 +199,8 @@ function populateFormFromState(state) {
   setVal('dcCombo',       AppState.designControl.activeCombination);
   setVal('dcGlobalFoS',   AppState.designControl.globalFoS_passive);
   setVal('dcEmbFactor',   AppState.designControl.embedmentSafetyFactor);
+  const bmdToggle = document.getElementById('dcBmdAtDesign');
+  if (bmdToggle) bmdToggle.checked = AppState.designControl.bmdAtDesignLength !== false;
   if (typeof renderFactorsTable === 'function') renderFactorsTable();
 
   // Soils (stratigraphy is shared)
