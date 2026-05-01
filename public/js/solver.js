@@ -270,78 +270,94 @@ function integrateProppedBM(profile, propLevel_m, wallTop_m, F_prop) {
 // ─── Multi-prop (Terzaghi-Peck apparent earth pressure envelope) ─────────────
 
 function solveMultiProp(state, combo) {
-  const profile = buildPressureProfile(state, combo);
   const wallTop = state.geometry.wallTopLevel_m;
   const aGround = state.geometry.activeGroundLevel_m;
   const pGround = state.geometry.passiveGroundLevel_m;
   const H       = aGround - pGround;          // excavation height
+  const factors = state.designControl.factors[combo] || PRESETS[combo];
 
-  // Terzaghi-Peck envelope for active side. Pick by dominant active soil type:
+  // 1. Apparent earth pressure envelope peak (Terzaghi-Peck, used to size props)
   const dominantSoil = soilAtLevel(state.activeSoils, (aGround + pGround) / 2);
-  const factors      = state.designControl.factors[combo];
-  const fSoil        = factorSoil(dominantSoil, factors);
-  let envelopePeak;
-  if (fSoil.type === 'undrained') {
-    // Soft to medium clay: σ = γH × (1 - 4cu/(γH))   bounded ≥ 0.3γH
-    const m = 4 * fSoil.cu / (fSoil.gamma * H);
-    envelopePeak = fSoil.gamma * H * Math.max(0.3, 1 - m);
-  } else {
-    // Sand: σ = 0.65 × Ka × γ × H
-    const phi_d = fSoil.phi;
-    const delta = phi_d * (fSoil.delta_active ?? 0.667);
-    const Ka    = coulombKa(phi_d, delta);
-    envelopePeak = 0.65 * Ka * fSoil.gamma * H;
+  let envelopePeak = 0;
+  if (dominantSoil) {
+    if (dominantSoil.type === 'undrained') {
+      const cu_d = dominantSoil.cu / (factors.gCu || 1);
+      const m    = (dominantSoil.gamma * H > 0) ? 4 * cu_d / (dominantSoil.gamma * H) : 1;
+      envelopePeak = dominantSoil.gamma * H * Math.max(0.3, 1 - m);
+    } else {
+      const tphi  = Math.tan(dominantSoil.phi * Math.PI / 180) / (factors.gPhi || 1);
+      const phi_d = Math.atan(tphi) * 180 / Math.PI;
+      const delta = phi_d * (dominantSoil.delta_active ?? 0.667);
+      const Ka    = coulombKa(phi_d, delta);
+      envelopePeak = 0.65 * Ka * dominantSoil.gamma * H;
+    }
   }
 
-  // Build envelope load along the wall (rectangular profile from aGround to pGround)
-  const props = [...state.props].sort((a, b) => b.level_m - a.level_m);   // top first
-  const propLevels = props.map(p => p.level_m);
+  // 2. Solve embedment as a single-prop sub-problem with the lowest prop only
+  const sortedProps = [...state.props].sort((a, b) => b.level_m - a.level_m);   // top first
+  const propLevels  = sortedProps.map(p => p.level_m);
+  const lowestProp  = propLevels[propLevels.length - 1];
+  const subState    = {
+    ...state,
+    props: [{ id:'mp-bottom', level_m: lowestProp, stiffness:'rigid', type:'permanent' }],
+    wall:  { ...state.wall, type: 'singleprop' }
+  };
+  const subRes      = solveSingleProp(subState, combo);
+  const d_required  = subRes.d_required_m;
+  const d_design    = d_required * (state.designControl.embedmentSafetyFactor || 1.20);
 
-  // Tributary load on each prop: each prop carries the envelope between half-distances to neighbours.
+  // 3. Build the canonical pressure profile at the chosen calc length
+  const useDesignLen = state.designControl.bmdAtDesignLength !== false;
+  const d_calc       = useDesignLen ? d_design : d_required;
+  const calcLength   = (wallTop - pGround) + d_calc;
+  const calcState    = { ...state, wall: { ...state.wall, length_m: calcLength } };
+  const profile      = buildPressureProfile(calcState, combo);
+
+  // 4. Distribute the envelope load to props by tributary area
   const propForces = propLevels.map((lvl, i) => {
     const above = i === 0 ? aGround : (propLevels[i-1] + lvl) / 2;
     const below = i === propLevels.length - 1 ? pGround : (lvl + propLevels[i+1]) / 2;
-    const tribH = above - below;                     // metres of wall the prop carries
-    return envelopePeak * tribH;                     // kN/m
+    return envelopePeak * (above - below);
   });
 
-  // BMD between props (continuous beam approximation: M_max ≈ w·L²/10)
-  // Embedment below lowest prop = single-prop FES sub-problem
-  const lowestProp = propLevels[propLevels.length - 1];
-  const trial   = { ...state, props: [{ level_m: lowestProp }], wall: { ...state.wall, type: 'singleprop' } };
-  const subRes  = solveSingleProp(trial, combo);
-
-  // For BMD on the propped portion, use envelope
-  const n = profile.z.length;
+  // 5. Integrate the LE pressure profile with prop reactions to get SF and BM.
+  // Walk top-to-bottom, accumulating ∫net dz, and at each prop level subtract the
+  // prop's tributary force from the running shear.
+  const n  = profile.z.length;
   const SF = new Array(n).fill(0);
   const BM = new Array(n).fill(0);
-  let pIdx = 0;
+  const applied = new Array(propLevels.length).fill(false);
+
+  for (let i = 1; i < n; i++) {
+    const dz  = profile.z[i] - profile.z[i-1];
+    const lvl = wallTop - profile.z[i];
+    SF[i] = SF[i-1] + 0.5 * (profile.net[i] + profile.net[i-1]) * dz;
+    for (let j = 0; j < propLevels.length; j++) {
+      if (!applied[j] && lvl <= propLevels[j]) {
+        SF[i] -= propForces[j];
+        applied[j] = true;
+      }
+    }
+  }
   for (let i = 1; i < n; i++) {
     const dz = profile.z[i] - profile.z[i-1];
-    const lvl = wallTop - profile.z[i];
-    const w_envelope = (lvl <= aGround && lvl >= pGround) ? envelopePeak : 0;
-    SF[i] = SF[i-1] + 0.5 * (w_envelope + (lvl <= aGround && lvl >= pGround ? envelopePeak : 0)) * dz;
-    // Apply prop reactions when crossing prop level (top to bottom)
-    while (pIdx < propLevels.length && lvl <= propLevels[pIdx]) {
-      SF[i] -= propForces[pIdx];
-      pIdx++;
-    }
     BM[i] = BM[i-1] + 0.5 * (SF[i] + SF[i-1]) * dz;
   }
-  // Below lowest prop, blend in solver result
-  for (let i = 0; i < n; i++) {
-    const lvl = wallTop - profile.z[i];
-    if (lvl < lowestProp) BM[i] = subRes.BMD[i];
-  }
+  // Linear close-to-zero at toe (corrects for residual ΣH from envelope-vs-LE mismatch
+  // and the LE-at-d_design over-mobilisation of passive)
+  const Mclose = BM[n-1];
+  for (let i = 0; i < n; i++) BM[i] -= Mclose * (profile.z[i] / profile.z[n-1]);
 
-  const EI = flexuralStiffness_kNm2_per_m(state.wall.sectionId);
+  const EI   = flexuralStiffness_kNm2_per_m(state.wall.sectionId);
   const defl = deflectionByDoubleIntegration(profile.z, BM, EI, { topFree: true, toeClamped: false });
 
+  const userEmbedment = state.wall.length_m - (wallTop - pGround);
   return {
     combo,
     wallType: 'multiprop',
-    d_required_m: subRes.d_required_m,
-    d_design_m:   subRes.d_design_m,
+    d_required_m: d_required,
+    d_design_m:   d_design,
+    user_embedment_m: userEmbedment,
     propForces_kN_per_m: propForces,
     envelopePeak_kPa:    envelopePeak,
     levels:    profile.levels,
@@ -355,7 +371,10 @@ function solveMultiProp(state, combo) {
     M_max_kNm_per_m:    Math.max(...BM.map(Math.abs)),
     V_max_kN_per_m:     Math.max(...SF.map(Math.abs)),
     deflection_max_mm:  Math.max(...defl.map(d => Math.abs(d))) * 1000,
-    status:             subRes.status
+    status:             subRes.convergenceFailed
+                          ? 'NON-CONVERGENT'
+                          : (userEmbedment >= d_design ? 'OK' : 'EMBEDMENT INSUFFICIENT'),
+    convergenceFailed:  subRes.convergenceFailed
   };
 }
 

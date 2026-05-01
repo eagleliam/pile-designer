@@ -125,7 +125,9 @@ function renderDiagramSVG(state) {
   } else if (view === 'factored' && r) {
     svg += renderNetOverlay(r, X, Y, xWall, true);
   } else if (view === 'BMD' && r) {
-    svg += renderCurveOverlay(r.z, r.BMD, wallTop, X, Y, xWall, '#B22234', 'BM (kNm/m)');
+    // Flip BMD direction so sagging plots on the active (left) side of the wall —
+    // matches CADS PWS / typical retaining-wall BMD convention.
+    svg += renderCurveOverlay(r.z, r.BMD, wallTop, X, Y, xWall, '#B22234', 'BM (kNm/m)', { flipDirection: true });
   } else if (view === 'SFD' && r) {
     svg += renderCurveOverlay(r.z, r.SFD, wallTop, X, Y, xWall, '#1f6c8a', 'V (kN/m)');
   } else if (view === 'deflection' && r) {
@@ -188,21 +190,29 @@ function renderNetOverlay(r, X, Y, xWall, factored) {
           <text x="${xWall + 10}" y="20" font-size="10" fill="#B22234" font-weight="700">${factored ? 'Factored net (kPa)' : 'Net σh (kPa)'}</text>`;
 }
 
-function renderCurveOverlay(zArr, vals, wallTop, X, Y, xWall, colour, label, horizontal) {
+function renderCurveOverlay(zArr, vals, wallTop, X, Y, xWall, colour, label, opts) {
   if (!zArr || !vals) return '';
+  opts = opts || {};
+  // flipDirection mirrors the curve about the wall axis without changing the
+  // numeric labels — used for BMD so positive (sagging) plots on the active side.
+  const sign = opts.flipDirection ? -1 : 1;
   const maxAbs = Math.max(...vals.map(Math.abs)) || 1;
   const ampPx  = 110;
   const path = [];
   for (let i = 0; i < zArr.length; i++) {
     const yReal = wallTop - zArr[i];
-    const dx    = (vals[i] / maxAbs) * ampPx;
+    const dx    = sign * (vals[i] / maxAbs) * ampPx;
     path.push(`${i === 0 ? 'M' : 'L'} ${xWall + dx} ${Y(yReal)}`);
   }
-  const peakIdx = vals.reduce((m, v, i, a) => Math.abs(v) > Math.abs(a[m]) ? i : m, 0);
+  const peakIdx  = vals.reduce((m, v, i, a) => Math.abs(v) > Math.abs(a[m]) ? i : m, 0);
+  const peakDx   = sign * (vals[peakIdx]/maxAbs) * ampPx;
+  // Header label sits on the side of the wall where the curve is, so it doesn't
+  // get masked when flipDirection is true.
+  const headerX  = xWall + (sign > 0 ? ampPx + 12 : -ampPx - 130);
   return `<path d="${path.join(' ')}" stroke="${colour}" stroke-width="2" fill="none"/>
           <line x1="${xWall}" y1="${Y(wallTop)}" x2="${xWall}" y2="${Y(wallTop - zArr[zArr.length-1])}" stroke="#bbb" stroke-width="0.6" stroke-dasharray="3,3"/>
-          <text x="${xWall + (vals[peakIdx]/maxAbs)*ampPx + 6}" y="${Y(wallTop - zArr[peakIdx])}" font-size="10" fill="${colour}" font-weight="700">${vals[peakIdx].toFixed(1)}</text>
-          <text x="${xWall + ampPx + 12}" y="20" font-size="10" fill="${colour}" font-weight="700">${label}, max = ${maxAbs.toFixed(1)}</text>`;
+          <text x="${xWall + peakDx + (sign > 0 ? 6 : -6)}" y="${Y(wallTop - zArr[peakIdx])}" font-size="10" fill="${colour}" font-weight="700" text-anchor="${sign > 0 ? 'start' : 'end'}">${vals[peakIdx].toFixed(1)}</text>
+          <text x="${headerX}" y="20" font-size="10" fill="${colour}" font-weight="700">${label}, max = ${maxAbs.toFixed(1)}</text>`;
 }
 
 function renderRotationalOverlay(stab, X, Y) {
