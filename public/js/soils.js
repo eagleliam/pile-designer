@@ -65,9 +65,35 @@ function updateSoilField(side, id, field, raw) {
     const v = parseFloat(raw);
     if (!isNaN(v)) layer[field] = v;
   }
+  refreshSoilCoeffs(id);
   markDirty(); scheduleAutoSave();
   refreshDiagram();
   triggerRecalc();
+}
+
+// Patch the coefficient read-out for one layer in place — avoids re-rendering
+// the whole card and stealing focus from the input the user is editing.
+function refreshSoilCoeffs(layerId) {
+  const layer = [...(AppState.activeSoils || []), ...(AppState.passiveSoils || [])]
+    .find(s => s.id === layerId);
+  if (!layer) return;
+  const row = document.querySelector(`.soil-coeffs[data-layer-id="${layerId}"]`);
+  if (!row) return;
+  row.innerHTML = _soilCoeffInner(layer);
+}
+
+function _soilCoeffInner(s) {
+  const k = earthPressureCoefficients(s);
+  if (!k) return '';
+  return `
+    <span class="sc-pair"><strong>Ka</strong> = ${k.Ka.toFixed(3)}</span>
+    <span class="sc-pair"><strong>Kac</strong> = ${k.Kac.toFixed(3)}</span>
+    <span class="sc-sep">|</span>
+    <span class="sc-pair"><strong>Kp</strong> = ${k.Kp.toFixed(3)}</span>
+    <span class="sc-pair"><strong>Kpc</strong> = ${k.Kpc.toFixed(3)}</span>
+    ${s.type === 'drained'
+      ? `<span class="sc-meta">δa = ${k.delta_a_deg.toFixed(1)}° &middot; δp = ${k.delta_p_deg.toFixed(1)}° &middot; cw/cu = ${WALL_ADHESION_RATIO}</span>`
+      : `<span class="sc-meta">undrained &middot; cw/cu = ${WALL_ADHESION_RATIO} (Padfield-Mair)</span>`}`;
 }
 
 function saveSoilToLibrary(side, layerId) {
@@ -108,16 +134,7 @@ function renderSoilSide(side) {
     .join('');
 
   host.innerHTML = arr.map((s, i) => {
-    const k = earthPressureCoefficients(s);
-    const coeffsRow = k ? `
-      <div class="soil-coeffs">
-        <span class="sc-pair"><strong>Ka</strong> = ${k.Ka.toFixed(3)}</span>
-        <span class="sc-pair"><strong>Kac</strong> = ${k.Kac.toFixed(3)}</span>
-        <span class="sc-sep">|</span>
-        <span class="sc-pair"><strong>Kp</strong> = ${k.Kp.toFixed(3)}</span>
-        <span class="sc-pair"><strong>Kpc</strong> = ${k.Kpc.toFixed(3)}</span>
-        ${s.type === 'drained' ? `<span class="sc-meta">δa = ${k.delta_a_deg.toFixed(1)}° &middot; δp = ${k.delta_p_deg.toFixed(1)}°</span>` : `<span class="sc-meta">undrained — coefficients applied to total stress</span>`}
-      </div>` : '';
+    const coeffsRow = `<div class="soil-coeffs" data-layer-id="${s.id}">${_soilCoeffInner(s)}</div>`;
     return `
     <div class="layer-card">
       <div class="layer-card-header">
@@ -180,6 +197,15 @@ function renderSoilLibrary() {
     <div style="font-size:11px;color:var(--text-dim);font-family:var(--mono);margin-top:6px">
       ★ = user-added soil (saved with this design). Built-in presets are loaded from <code>/data/soil-presets.json</code>.
     </div>`;
+}
+
+function toggleSoilLibrary() {
+  const body  = document.getElementById('soilLibraryBody');
+  const caret = document.getElementById('soilLibraryCaret');
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : '';
+  if (caret) caret.textContent = open ? '▶' : '▼';
 }
 
 function removeFromSoilLibrary(id) {

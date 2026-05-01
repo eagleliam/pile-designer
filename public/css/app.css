@@ -768,3 +768,8 @@ tr:nth-child(even) td { background:var(--surface2); }
 .soil-coeffs .sc-pair strong { color: var(--red); margin-right: 2px; }
 .soil-coeffs .sc-sep   { color: var(--border-strong); }
 .soil-coeffs .sc-meta  { color: var(--text-dim); margin-left: auto; font-size: 10px; }
+
+/* ─── Collapsible sections ─── */
+.section-collapsible .section-header { cursor: pointer; user-select: none; transition: background 0.1s; }
+.section-collapsible .section-header:hover { background: var(--red-glow); }
+.collapse-caret { display: inline-block; width: 12px; font-size: 10px; color: var(--red); transform: translateY(-1px); margin-right: 4px; }

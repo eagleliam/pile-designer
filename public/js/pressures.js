@@ -10,6 +10,12 @@
 
 const GAMMA_W = 9.81;        // kN/m³, water unit weight
 
+// Wall adhesion ratio α = cw/cu (or cw/c' for drained). Padfield & Mair
+// (CIRIA Report 104) recommend 0.5 for embedded retaining walls; CADS PWS
+// uses the same default. Affects Kac and Kpc — for α = 0.5 with φ = 0,
+// Kac = Kpc = 2 √(1 + α) = 2.449.
+const WALL_ADHESION_RATIO = 0.5;
+
 // ─── Coulomb / Rankine earth pressure coefficients ───────────────────────────
 
 function coulombKa(phi_deg, delta_deg) {
@@ -29,8 +35,10 @@ function coulombKa(phi_deg, delta_deg) {
 //   Undrained: Ka = Kp = 1, Kac = Kpc = 2 (matches σh = σv ± 2cu form)
 function earthPressureCoefficients(layer) {
   if (!layer) return null;
+  const adh = WALL_ADHESION_RATIO;
   if (layer.type === 'undrained') {
-    return { Ka: 1, Kp: 1, Kac: 2, Kpc: 2, delta_a_deg: 0, delta_p_deg: 0 };
+    const Kac = 2 * Math.sqrt(1 + adh);                  // = 2.449 for α = 0.5
+    return { Ka: 1, Kp: 1, Kac, Kpc: Kac, delta_a_deg: 0, delta_p_deg: 0 };
   }
   const phi = layer.phi || 0;
   const delta_a = phi * (layer.delta_active  ?? 0.667);
@@ -39,8 +47,8 @@ function earthPressureCoefficients(layer) {
   const Kp = coulombKp(phi, delta_p);
   return {
     Ka, Kp,
-    Kac: 2 * Math.sqrt(Ka),
-    Kpc: 2 * Math.sqrt(Kp),
+    Kac: 2 * Math.sqrt(Ka * (1 + adh)),
+    Kpc: 2 * Math.sqrt(Kp * (1 + adh)),
     delta_a_deg: delta_a,
     delta_p_deg: delta_p
   };
@@ -100,7 +108,8 @@ function sigmaVertEffective(level_m, groundLevel_m, layers, waterLevel_m) {
       aboveWater = sliceTop - waterLevel_m;
       belowWater = waterLevel_m - sliceBottom;
     }
-    sv += aboveWater * layer.gamma + belowWater * (layer.gamma_sat - GAMMA_W);
+    const gSat = layer.gamma_sat ?? layer.gamma;     // fall back to bulk γ if γ_sat missing
+    sv += aboveWater * layer.gamma + belowWater * (gSat - GAMMA_W);
     z = sliceBottom;
     if (z <= level_m + 1e-9) break;
   }
@@ -115,30 +124,36 @@ function porePressure(level_m, waterLevel_m) {
 // ─── Active / passive horizontal stress at a level ───────────────────────────
 
 function effectiveHorizActive(layer, sigma_v_eff, factors) {
+  const adh = WALL_ADHESION_RATIO;
   if (layer.type === 'undrained') {
-    const cu = layer.cu / (factors.gCu || 1);
-    return Math.max(0, sigma_v_eff - 2 * cu);
+    const cu  = layer.cu / (factors.gCu || 1);
+    const Kac = 2 * Math.sqrt(1 + adh);                     // 2.449 for α = 0.5
+    return Math.max(0, sigma_v_eff - Kac * cu);
   } else {
     const tanPhi = Math.tan(layer.phi * Math.PI / 180) / (factors.gPhi || 1);
     const phi_d  = Math.atan(tanPhi) * 180 / Math.PI;
     const delta  = phi_d * (layer.delta_active ?? 0.667);
     const Ka     = coulombKa(phi_d, delta);
     const c_d    = layer.c_eff / (factors.gCeff || 1);
-    return Math.max(0, Ka * sigma_v_eff - 2 * c_d * Math.sqrt(Ka));
+    const Kac    = 2 * Math.sqrt(Ka * (1 + adh));
+    return Math.max(0, Ka * sigma_v_eff - Kac * c_d);
   }
 }
 
 function effectiveHorizPassive(layer, sigma_v_eff, factors) {
+  const adh = WALL_ADHESION_RATIO;
   if (layer.type === 'undrained') {
-    const cu = layer.cu / (factors.gCu || 1);
-    return Math.max(0, sigma_v_eff + 2 * cu);
+    const cu  = layer.cu / (factors.gCu || 1);
+    const Kpc = 2 * Math.sqrt(1 + adh);
+    return Math.max(0, sigma_v_eff + Kpc * cu);
   } else {
     const tanPhi = Math.tan(layer.phi * Math.PI / 180) / (factors.gPhi || 1);
     const phi_d  = Math.atan(tanPhi) * 180 / Math.PI;
     const delta  = phi_d * (layer.delta_passive ?? 0.5);
     const Kp     = coulombKp(phi_d, delta);
     const c_d    = layer.c_eff / (factors.gCeff || 1);
-    return Math.max(0, Kp * sigma_v_eff + 2 * c_d * Math.sqrt(Kp));
+    const Kpc    = 2 * Math.sqrt(Kp * (1 + adh));
+    return Math.max(0, Kp * sigma_v_eff + Kpc * c_d);
   }
 }
 

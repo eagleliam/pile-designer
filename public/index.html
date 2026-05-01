@@ -203,10 +203,13 @@
       </div>
     </div>
 
-    <!-- Soil Library -->
-    <div class="section">
-      <div class="section-header"><h2>Soil Library</h2><span class="section-tag">Presets + custom</span></div>
-      <div class="section-body">
+    <!-- Soil Library (collapsible, default minimised) -->
+    <div class="section section-collapsible" id="soilLibrarySection">
+      <div class="section-header" onclick="toggleSoilLibrary()" title="Click to expand or minimise">
+        <h2><span class="collapse-caret" id="soilLibraryCaret">▶</span> Soil Library</h2>
+        <span class="section-tag">Presets + custom</span>
+      </div>
+      <div class="section-body" id="soilLibraryBody" style="display:none">
         <div class="info-box">Built-in presets are available on every layer's "Apply preset" dropdown. Click "+ Save to library" on any layer below to add a custom soil for this design (★ marker).</div>
         <div id="soilLibraryList"></div>
       </div>
